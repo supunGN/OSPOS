@@ -23,7 +23,8 @@ jobs:
   lint:
     name: PHP ${{ matrix.php-version }} Lint with PHP CS Fixer
     runs-on: ubuntu-22.04
-
+    env:
+      COMPOSER_CACHE_FILES_DIR: ""
     strategy:
       fail-fast: false
       matrix:
