@@ -24,6 +24,8 @@ class Suppliers extends Persons
 
     /**
      * Gets one row for a supplier manage table. This is called using AJAX to update one row.
+     *
+     * @param mixed $row_id
      */
     public function getRow($row_id): void
     {

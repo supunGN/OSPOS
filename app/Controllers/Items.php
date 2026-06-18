@@ -777,6 +777,8 @@ class Items extends Secure_Controller
 
     /**
      * @noinspection PhpUnused
+     *
+     * @param mixed $item_id
      */
     public function getRemoveLogo($item_id): void
     {

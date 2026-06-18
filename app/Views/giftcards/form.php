@@ -39,11 +39,11 @@ if ($config['giftcard_number'] === 'series') {
             <?= form_label(lang('Giftcards.giftcard_number'), 'giftcard_number', ['class' => "control-label col-xs-3{$class}"]) ?>
             <div class="col-xs-4">
                 <?= form_input([
-            'name'  => 'giftcard_number',
-            'id'    => 'giftcard_number',
-            'class' => 'form-control input-sm',
-            'value' => $giftcard_number,
-        ]) ?>
+                    'name'  => 'giftcard_number',
+                    'id'    => 'giftcard_number',
+                    'class' => 'form-control input-sm',
+                    'value' => $giftcard_number,
+                ]) ?>
             </div>
         </div>
 
@@ -56,11 +56,11 @@ if ($config['giftcard_number'] === 'series') {
                         <span class="input-group-addon input-sm"><?= esc($config['currency_symbol']) ?></span>
                     <?php endif; ?>
                     <?= form_input([
-                'name'  => 'giftcard_amount',
-                'id'    => 'giftcard_amount',
-                'class' => 'form-control input-sm',
-                'value' => to_currency_no_money($giftcard_value),
-            ]) ?>
+                        'name'  => 'giftcard_amount',
+                        'id'    => 'giftcard_amount',
+                        'class' => 'form-control input-sm',
+                        'value' => to_currency_no_money($giftcard_value),
+                    ]) ?>
                     <?php if (is_right_side_currency_symbol()): ?>
                         <span class="input-group-addon input-sm"><b><?= esc($config['currency_symbol']) ?></span>
                     <?php endif; ?>

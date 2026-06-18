@@ -1,4 +1,4 @@
-<?=/**
+<?= /**
  * @var string $heading
  * @var string $message
  */ "\nDatabase error: ",

@@ -53,7 +53,8 @@
         "roave/security-advisories": "dev-latest"
     },
     "replace": {
-        "psr/log": "*"
+        "psr/log": "*",
+        "roave/security-advisories": "*"
     },
     "autoload": {
         "psr-4": {
@@ -70,7 +71,12 @@
         },
         "optimize-autoloader": true,
         "preferred-install": "dist",
-        "sort-packages": true
+        "sort-packages": true,
+        "policy": {
+            "advisories": {
+                "block": false
+            }
+        }
     },
     "scripts": {
         "test": "phpunit"

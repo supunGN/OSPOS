@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use CodeIgniter\Database\BaseBuilder;
 use CodeIgniter\Database\Query;
 use CodeIgniter\Database\RawSql;
 use CodeIgniter\Database\ResultInterface;
@@ -936,7 +937,7 @@ class Attribute extends Model
      * Deletes Attribute Links associated with a specific definition ID and attribute ID.
      * Does not delete rows where sale_id or receiving_id has a value to retain records.
      *
-     * @return \CodeIgniter\Database\BaseBuilder
+     * @return BaseBuilder
      */
     private function deleteAttributeLinksByDefinitionIdAndAttributeId(int $definitionId, int $attributeId): void
     {

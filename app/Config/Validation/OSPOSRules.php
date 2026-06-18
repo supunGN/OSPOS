@@ -65,6 +65,8 @@ class OSPOSRules
     /**
      * Checks to see if GCaptcha verification was successful.
      *
+     * @param mixed $response
+     *
      * @return bool true on successful GCaptcha verification or false if GCaptcha failed.
      */
     private function gcaptcha_check($response): bool

@@ -1,11 +1,12 @@
 <?php
 /**
- * @var object                           $user_info
- * @var array                            $allowed_modules
- * @var CodeIgniter\HTTP\IncomingRequest $request
- * @var array                            $config
+ * @var object          $user_info
+ * @var array           $allowed_modules
+ * @var IncomingRequest $request
+ * @var array           $config
  */
 
+use CodeIgniter\HTTP\IncomingRequest;
 use Config\Services;
 
 $request = Services::request();

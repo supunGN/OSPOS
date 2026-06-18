@@ -7,9 +7,12 @@ if (! class_exists('CI_Controller')) {
     class_alias('CodeIgniter\Controller', 'CI_Controller');
 }
 
+use App\Models\Inventory;
+use App\Models\Item_quantity;
 use CI_Controller;
 use CodeIgniter\HTTP\RequestInterface;
 use CodeIgniter\HTTP\ResponseInterface;
+use Config\Database;
 use Psr\Log\LoggerInterface;
 
 /**
@@ -24,12 +27,12 @@ class Api extends CI_Controller
     private const SECURE_TOKEN = 'Bearer your_secret_ospos_token_here';
 
     /**
-     * @var \App\Models\Item_quantity
+     * @var Item_quantity
      */
     public $Item_quantity;
 
     /**
-     * @var \App\Models\Inventory
+     * @var Inventory
      */
     public $Inventory;
 
@@ -231,7 +234,7 @@ class Api extends CI_Controller
         // If the item doesn't exist or is not tracked in the quantity registry, return HTTP 404
         if (
             empty($result)
-            || $result instanceof \App\Models\Item_quantity
+            || $result instanceof Item_quantity
             || ! isset($result->item_id)
             || $result->item_id === ''
             || $result->item_id === null
@@ -314,7 +317,7 @@ class Api extends CI_Controller
         // If the item doesn't exist or is not tracked in the quantity registry, return HTTP 404
         if (
             empty($result)
-            || $result instanceof \App\Models\Item_quantity
+            || $result instanceof Item_quantity
             || ! isset($result->item_id)
             || $result->item_id === ''
             || $result->item_id === null
@@ -369,7 +372,7 @@ class Api extends CI_Controller
         // Enforce bearer token validation
         $this->validate_auth(true);
 
-        $db = \Config\Database::connect();
+        $db = Database::connect();
 
         $query = $db->query('
             SELECT

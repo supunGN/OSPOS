@@ -144,11 +144,11 @@ if (isset($success)) {
                         <?php if ($items_module_allowed && $mode !== 'requisition') { ?>
                             <td>
                                 <?= form_input([
-                                        'name'    => 'price',
-                                        'class'   => 'form-control input-sm',
-                                        'value'   => to_currency_no_money($item['price']),
-                                        'onClick' => 'this.select();',
-                                    ]) ?>
+                                    'name'    => 'price',
+                                    'class'   => 'form-control input-sm',
+                                    'value'   => to_currency_no_money($item['price']),
+                                    'onClick' => 'this.select();',
+                                ]) ?>
                             </td>
                         <?php } else { ?>
                             <td>

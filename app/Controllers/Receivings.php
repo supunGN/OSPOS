@@ -178,6 +178,8 @@ class Receivings extends Secure_Controller
      * Edit line item in current receiving. Used in app/Views/receivings/receiving.php
      *
      * @noinspection PhpUnused
+     *
+     * @param mixed $item_id
      */
     public function postEditItem($item_id): void
     {
@@ -215,6 +217,8 @@ class Receivings extends Secure_Controller
      * Edit a receiving. Used in app/Controllers/Receivings.php
      *
      * @noinspection PhpUnused
+     *
+     * @param mixed $receiving_id
      */
     public function getEdit($receiving_id): void
     {
@@ -244,6 +248,8 @@ class Receivings extends Secure_Controller
      * Deletes an item from the current receiving. Used in app/Views/receivings/receiving.php
      *
      * @noinspection PhpUnused
+     *
+     * @param mixed $item_number
      */
     public function getDeleteItem($item_number): void
     {
@@ -370,6 +376,8 @@ class Receivings extends Secure_Controller
      * Gets the receipt for a receiving. Used in app/Views/receivings/form.php
      *
      * @noinspection PhpUnused
+     *
+     * @param mixed $receiving_id
      */
     public function getReceipt($receiving_id): void
     {
