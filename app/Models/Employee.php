@@ -8,7 +8,7 @@ use CodeIgniter\Session\Session;
 /**
  * Employee class
  *
- * @property Session session
+ * @property Session $session
  */
 class Employee extends Person
 {
@@ -41,7 +41,7 @@ class Employee extends Person
         $builder->join('people', 'people.person_id = employees.person_id');
         $builder->where('employees.person_id', $person_id);
 
-        return $builder->get()->getNumRows() === 1;    // TODO: ===
+        return $builder->countAllResults() > 0;
     }
 
     public function username_exists(int $employee_id, string $username): bool
@@ -50,7 +50,7 @@ class Employee extends Person
         $builder->where('employees.username', $username);
         $builder->where('employees.person_id <>', $employee_id);
 
-        return $builder->get()->getNumRows() === 1;    // TODO: ===
+        return $builder->countAllResults() > 0;
     }
 
     /**
@@ -89,7 +89,7 @@ class Employee extends Person
         $builder->where('employees.person_id', $person_id);
         $query = $builder->get();
 
-        if ($query->getNumRows() === 1) {    // TODO: ===
+        if ($query->getNumRows() === 1) {
             return $query->getRow();
         }
 
