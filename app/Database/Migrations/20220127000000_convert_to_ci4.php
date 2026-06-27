@@ -5,8 +5,8 @@ namespace App\Database\Migrations;
 use App\Models\Appconfig;
 use CodeIgniter\Database\Forge;
 use CodeIgniter\Database\Migration;
-use CodeIgniter\HTTP\Exceptions\RedirectException;
 use CodeIgniter\HTTP\RedirectResponse;
+use CodeIgniter\HTTP\Exceptions\RedirectException;
 use Config\Encryption;
 use Config\Services;
 use ReflectionException;
@@ -32,7 +32,7 @@ class Convert_to_ci4 extends Migration
         helper('migration');
         execute_script(APPPATH . 'Database/Migrations/sqlscripts/3.4.0_ci4_conversion.sql');
 
-        if (! empty(config('Encryption')->key)) {
+        if (!empty(config('Encryption')->key)) {
             $this->convert_ci3_encrypted_data();
         } else {
             check_encryption();
@@ -46,13 +46,10 @@ class Convert_to_ci4 extends Migration
     /**
      * Revert a migration step.
      */
-    public function down(): void
-    {
-    }
+    public function down(): void {}
 
     /**
      * @return RedirectResponse|void
-     *
      * @throws ReflectionException
      */
     private function convert_ci3_encrypted_data()
@@ -64,7 +61,7 @@ class Convert_to_ci4 extends Migration
             'clcdesq_api_url'   => '',
             'mailchimp_api_key' => '',
             'mailchimp_list_id' => '',
-            'smtp_pass'         => '',
+            'smtp_pass'         => ''
         ];
 
         foreach ($ci3_encrypted_data as $key => $value) {
@@ -79,10 +76,9 @@ class Convert_to_ci4 extends Migration
             $ci4_encrypted_data = $this->encrypt_data($decrypted_data);
 
             $success = empty(array_diff_assoc($decrypted_data, $this->decrypt_data($ci4_encrypted_data)));
-            if (! $success) {
+            if (!$success) {
                 abort_encryption_conversion();
                 remove_backup();
-
                 throw new RedirectException('login');
             }
 
@@ -96,25 +92,23 @@ class Convert_to_ci4 extends Migration
      * Decrypts CI3 encrypted data and returns the plaintext values.
      *
      * @param array $encrypted_data Data encrypted using CI3 methodology.
-     *
      * @return array Plaintext, unencrypted data.
      */
     private function decrypt_ci3_data(array $encrypted_data): array
     {
-        $config                 = new Encryption();
-        $config->driver         = 'OpenSSL';
-        $config->key            = config('Encryption')->key;
-        $config->cipher         = 'AES-128-CBC';
-        $config->rawData        = false;
+        $config = new Encryption();
+        $config->driver = 'OpenSSL';
+        $config->key = config('Encryption')->key;
+        $config->cipher = 'AES-128-CBC';
+        $config->rawData = false;
         $config->encryptKeyInfo = 'encryption';
-        $config->authKeyInfo    = 'authentication';
+        $config->authKeyInfo = 'authentication';
 
         $encrypter = Services::encrypter($config);
 
         $decrypted_data = [];
-
         foreach ($encrypted_data as $key => $value) {
-            $decrypted_data[$key] = ! empty($value) ? $encrypter->decrypt($value) : '';
+            $decrypted_data[$key] = !empty($value) ? $encrypter->decrypt($value) : '';
         }
 
         return $decrypted_data;
@@ -124,7 +118,6 @@ class Convert_to_ci4 extends Migration
      * Encrypts data using CI4 algorithms.
      *
      * @param array $plain_data Data to be encrypted.
-     *
      * @return array Encrypted data.
      */
     private function encrypt_data(array $plain_data): array
@@ -132,9 +125,8 @@ class Convert_to_ci4 extends Migration
         $encrypter = Services::encrypter();
 
         $encrypted_data = [];
-
         foreach ($plain_data as $key => $value) {
-            $encrypted_data[$key] = ! empty($value) ? $encrypter->encrypt($value) : '';
+            $encrypted_data[$key] = !empty($value) ? $encrypter->encrypt($value) : '';
         }
 
         return $encrypted_data;
@@ -144,7 +136,6 @@ class Convert_to_ci4 extends Migration
      * Decrypts data using CI4 algorithms.
      *
      * @param array $encrypted_data Data to be decrypted.
-     *
      * @return array Decrypted data.
      */
     private function decrypt_data(array $encrypted_data): array
@@ -152,9 +143,8 @@ class Convert_to_ci4 extends Migration
         $encrypter = Services::encrypter();
 
         $decrypted_data = [];
-
         foreach ($encrypted_data as $key => $value) {
-            $decrypted_data[$key] = ! empty($value) ? $encrypter->decrypt($value) : '';
+            $decrypted_data[$key] = !empty($value) ? $encrypter->decrypt($value) : '';
         }
 
         return $decrypted_data;

@@ -4,6 +4,8 @@ namespace App\Controllers;
 
 use App\Models\Attribute;
 use App\Models\Customer;
+use App\Models\Stock_location;
+use App\Models\Supplier;
 use App\Models\Reports\Detailed_receivings;
 use App\Models\Reports\Detailed_sales;
 use App\Models\Reports\Inventory_low;
@@ -23,8 +25,6 @@ use App\Models\Reports\Summary_sales;
 use App\Models\Reports\Summary_sales_taxes;
 use App\Models\Reports\Summary_suppliers;
 use App\Models\Reports\Summary_taxes;
-use App\Models\Stock_location;
-use App\Models\Supplier;
 use Config\OSPOS;
 use Config\Services;
 
@@ -53,37 +53,37 @@ class Reports extends Secure_Controller
     public function __construct()
     {
         parent::__construct('reports');
-        $request     = Services::request();
+        $request = Services::request();
         $method_name = $request->getUri()->getSegment(2);
-        $exploder    = explode('_', $method_name);
+        $exploder = explode('_', $method_name);
 
-        $this->attribute                   = config(Attribute::class);
-        $this->config                      = config(OSPOS::class)->settings;
-        $this->customer                    = model(Customer::class);
-        $this->stock_location              = model(Stock_location::class);
-        $this->summary_sales               = model(Summary_sales::class);
-        $this->summary_sales_taxes         = model(Summary_sales_taxes::class);
-        $this->summary_categories          = model(Summary_categories::class);
+        $this->attribute = config(Attribute::class);
+        $this->config = config(OSPOS::class)->settings;
+        $this->customer = model(Customer::class);
+        $this->stock_location = model(Stock_location::class);
+        $this->summary_sales = model(Summary_sales::class);
+        $this->summary_sales_taxes = model(Summary_sales_taxes::class);
+        $this->summary_categories = model(Summary_categories::class);
         $this->summary_expenses_categories = model(Summary_expenses_categories::class);
-        $this->summary_customers           = model(Summary_customers::class);
-        $this->summary_items               = model(Summary_items::class);
-        $this->summary_suppliers           = model(Summary_suppliers::class);
-        $this->summary_employees           = model(Summary_employees::class);
-        $this->summary_taxes               = model(Summary_taxes::class);
-        $this->summary_discounts           = model(Summary_discounts::class);
-        $this->summary_payments            = model(Summary_payments::class);
-        $this->detailed_sales              = model(Detailed_sales::class);
-        $this->supplier                    = model(Supplier::class);
-        $this->detailed_receivings         = model(Detailed_receivings::class);
-        $this->inventory_summary           = model(Inventory_summary::class);
+        $this->summary_customers = model(Summary_customers::class);
+        $this->summary_items = model(Summary_items::class);
+        $this->summary_suppliers = model(Summary_suppliers::class);
+        $this->summary_employees = model(Summary_employees::class);
+        $this->summary_taxes = model(Summary_taxes::class);
+        $this->summary_discounts = model(Summary_discounts::class);
+        $this->summary_payments = model(Summary_payments::class);
+        $this->detailed_sales = model(Detailed_sales::class);
+        $this->supplier = model(Supplier::class);
+        $this->detailed_receivings = model(Detailed_receivings::class);
+        $this->inventory_summary = model(Inventory_summary::class);
 
-        if (count($exploder) > 1) {
+        if (sizeof($exploder) > 1) {
             preg_match('/(?:inventory)|([^_.]*)(?:_graph|_row)?$/', $method_name, $matches);
             preg_match('/^(.*?)([sy])?$/', array_pop($matches), $matches);
             $submodule_id = $matches[1] . ((count($matches) > 2) ? $matches[2] : 's');
 
             // Check access to report submodule
-            if (! $this->employee->has_grant('reports_' . $submodule_id, $this->employee->get_logged_in_employee_info()->person_id)) {
+            if (!$this->employee->has_grant('reports_' . $submodule_id, $this->employee->get_logged_in_employee_info()->person_id)) {
                 redirect('no_access/reports/reports_' . $submodule_id);
             }
         }
@@ -91,6 +91,9 @@ class Reports extends Secure_Controller
         helper('report');
     }
 
+    /**
+     * @return void
+     */
     public function index(): void
     {
         $this->getIndex();
@@ -101,8 +104,8 @@ class Reports extends Secure_Controller
      */
     public function getIndex(): void
     {
-        $person_id       = $this->session->get('person_id');
-        $grants          = $this->employee->get_employee_grants($this->session->get('person_id'));
+        $person_id = $this->session->get('person_id');
+        $grants = $this->employee->get_employee_grants($this->session->get('person_id'));
         $permissions_ids = array_column($grants, 'permission_id');
 
         $data = [
@@ -116,6 +119,11 @@ class Reports extends Secure_Controller
 
     /**
      * Summary Sales Report.
+     * @param string $start_date
+     * @param string $end_date
+     * @param string $sale_type
+     * @param string $location_id
+     * @return void
      */
     public function summary_sales(string $start_date, string $end_date, string $sale_type, string $location_id = 'all'): void    // TODO: Perhaps these need to be passed as an array?  Too many parameters in the signature.
     {   // TODO: Duplicated code
@@ -125,14 +133,13 @@ class Reports extends Secure_Controller
             'start_date'  => $start_date,
             'end_date'    => $end_date,
             'sale_type'   => $sale_type,
-            'location_id' => $location_id,
+            'location_id' => $location_id
         ];
 
         $report_data = $this->summary_sales->getData($inputs);
-        $summary     = $this->summary_sales->getSummaryData($inputs);
+        $summary = $this->summary_sales->getSummaryData($inputs);
 
         $tabular_data = [];
-
         foreach ($report_data as $row) {
             $tabular_data[] = [
                 'sale_date' => to_date(strtotime($row['sale_date'])),
@@ -142,7 +149,7 @@ class Reports extends Secure_Controller
                 'tax'       => to_currency_tax($row['tax']),
                 'total'     => to_currency($row['total']),
                 'cost'      => to_currency($row['cost']),
-                'profit'    => to_currency($row['profit']),
+                'profit'    => to_currency($row['profit'])
             ];
         }
 
@@ -151,7 +158,7 @@ class Reports extends Secure_Controller
             'subtitle'     => $this->_get_subtitle_report(['start_date' => $start_date, 'end_date' => $end_date]),
             'headers'      => $this->summary_sales->getDataColumns(),
             'data'         => $tabular_data,
-            'summary_data' => $summary,
+            'summary_data' => $summary
         ];
 
         echo view('reports/tabular', $data);
@@ -159,6 +166,11 @@ class Reports extends Secure_Controller
 
     /**
      * Summary Categories report.
+     * @param string $start_date
+     * @param string $end_date
+     * @param string $sale_type
+     * @param string $location_id
+     * @return void
      */
     public function summary_categories(string $start_date, string $end_date, string $sale_type, string $location_id = 'all'): void
     {   // TODO: Duplicated code
@@ -168,14 +180,13 @@ class Reports extends Secure_Controller
             'start_date'  => $start_date,
             'end_date'    => $end_date,
             'sale_type'   => $sale_type,
-            'location_id' => $location_id,
+            'location_id' => $location_id
         ];
 
         $report_data = $this->summary_categories->getData($inputs);
-        $summary     = $this->summary_categories->getSummaryData($inputs);
+        $summary = $this->summary_categories->getSummaryData($inputs);
 
         $tabular_data = [];
-
         foreach ($report_data as $row) {
             $tabular_data[] = [
                 'category' => $row['category'],
@@ -184,7 +195,7 @@ class Reports extends Secure_Controller
                 'tax'      => to_currency_tax($row['tax']),
                 'total'    => to_currency($row['total']),
                 'cost'     => to_currency($row['cost']),
-                'profit'   => to_currency($row['profit']),
+                'profit'   => to_currency($row['profit'])
             ];
         }
 
@@ -193,7 +204,7 @@ class Reports extends Secure_Controller
             'subtitle'     => $this->_get_subtitle_report(['start_date' => $start_date, 'end_date' => $end_date]),
             'headers'      => $this->summary_categories->getDataColumns(),
             'data'         => $tabular_data,
-            'summary_data' => $summary,
+            'summary_data' => $summary
         ];
 
         echo view('reports/tabular', $data);
@@ -201,6 +212,10 @@ class Reports extends Secure_Controller
 
     /**
      * Summary Expenses by Categories report.
+     * @param string $start_date
+     * @param string $end_date
+     * @param string $sale_type
+     * @return void
      */
     public function summary_expenses_categories(string $start_date, string $end_date, string $sale_type): void
     {
@@ -209,16 +224,15 @@ class Reports extends Secure_Controller
         $inputs = ['start_date' => $start_date, 'end_date' => $end_date, 'sale_type' => $sale_type];    // TODO: Duplicated Code
 
         $report_data = $this->summary_expenses_categories->getData($inputs);
-        $summary     = $this->summary_expenses_categories->getSummaryData($inputs);
+        $summary = $this->summary_expenses_categories->getSummaryData($inputs);
 
         $tabular_data = [];
-
         foreach ($report_data as $row) {
             $tabular_data[] = [
                 'category_name'    => $row['category_name'],
                 'count'            => $row['count'],
                 'total_amount'     => to_currency($row['total_amount']),
-                'total_tax_amount' => to_currency($row['total_tax_amount']),
+                'total_tax_amount' => to_currency($row['total_tax_amount'])
             ];
         }
 
@@ -227,7 +241,7 @@ class Reports extends Secure_Controller
             'subtitle'     => $this->_get_subtitle_report(['start_date' => $start_date, 'end_date' => $end_date]),
             'headers'      => $this->summary_expenses_categories->getDataColumns(),
             'data'         => $tabular_data,
-            'summary_data' => $summary,
+            'summary_data' => $summary
         ];
 
         echo view('reports/tabular', $data);
@@ -235,6 +249,11 @@ class Reports extends Secure_Controller
 
     /**
      * Summary Customers report.
+     * @param string $start_date
+     * @param string $end_date
+     * @param string $sale_type
+     * @param string $location_id
+     * @return void
      */
     public function summary_customers(string $start_date, string $end_date, string $sale_type, string $location_id = 'all'): void
     {
@@ -244,11 +263,11 @@ class Reports extends Secure_Controller
             'start_date'  => $start_date,
             'end_date'    => $end_date,
             'sale_type'   => $sale_type,
-            'location_id' => $location_id,
+            'location_id' => $location_id
         ];
 
         $report_data = $this->summary_customers->getData($inputs);
-        $summary     = $this->summary_customers->getSummaryData($inputs);
+        $summary = $this->summary_customers->getSummaryData($inputs);
 
         $tabular_data = [];
 
@@ -261,7 +280,7 @@ class Reports extends Secure_Controller
                 'tax'           => to_currency_tax($row['tax']),
                 'total'         => to_currency($row['total']),
                 'cost'          => to_currency($row['cost']),
-                'profit'        => to_currency($row['profit']),
+                'profit'        => to_currency($row['profit'])
             ];
         }
 
@@ -270,7 +289,7 @@ class Reports extends Secure_Controller
             'subtitle'     => $this->_get_subtitle_report(['start_date' => $start_date, 'end_date' => $end_date]),
             'headers'      => $this->summary_customers->getDataColumns(),
             'data'         => $tabular_data,
-            'summary_data' => $summary,
+            'summary_data' => $summary
         ];
 
         echo view('reports/tabular', $data);
@@ -278,6 +297,11 @@ class Reports extends Secure_Controller
 
     /**
      * Summary Suppliers report.
+     * @param string $start_date
+     * @param string $end_date
+     * @param string $sale_type
+     * @param string $location_id
+     * @return void
      */
     public function summary_suppliers(string $start_date, string $end_date, string $sale_type, string $location_id = 'all'): void
     {   // TODO: Duplicated Code
@@ -287,14 +311,13 @@ class Reports extends Secure_Controller
             'start_date'  => $start_date,
             'end_date'    => $end_date,
             'sale_type'   => $sale_type,
-            'location_id' => $location_id,
+            'location_id' => $location_id
         ];
 
         $report_data = $this->summary_suppliers->getData($inputs);
-        $summary     = $this->summary_suppliers->getSummaryData($inputs);
+        $summary = $this->summary_suppliers->getSummaryData($inputs);
 
         $tabular_data = [];
-
         foreach ($report_data as $row) {
             $tabular_data[] = [
                 'supplier_name' => $row['supplier'],
@@ -303,7 +326,7 @@ class Reports extends Secure_Controller
                 'tax'           => to_currency_tax($row['tax']),
                 'total'         => to_currency($row['total']),
                 'cost'          => to_currency($row['cost']),
-                'profit'        => to_currency($row['profit']),
+                'profit'        => to_currency($row['profit'])
             ];
         }
 
@@ -312,7 +335,7 @@ class Reports extends Secure_Controller
             'subtitle'     => $this->_get_subtitle_report(['start_date' => $start_date, 'end_date' => $end_date]),
             'headers'      => $this->summary_suppliers->getDataColumns(),
             'data'         => $tabular_data,
-            'summary_data' => $summary,
+            'summary_data' => $summary
         ];
 
         echo view('reports/tabular', $data);
@@ -320,6 +343,11 @@ class Reports extends Secure_Controller
 
     /**
      * Summary Items report.
+     * @param string $start_date
+     * @param string $end_date
+     * @param string $sale_type
+     * @param string $location_id
+     * @return void
      */
     public function summary_items(string $start_date, string $end_date, string $sale_type, string $location_id = 'all'): void
     {
@@ -329,11 +357,11 @@ class Reports extends Secure_Controller
             'start_date'  => $start_date,
             'end_date'    => $end_date,
             'sale_type'   => $sale_type,
-            'location_id' => $location_id,
+            'location_id' => $location_id
         ];
 
         $report_data = $this->summary_items->getData($inputs);
-        $summary     = $this->summary_items->getSummaryData($inputs);
+        $summary = $this->summary_items->getSummaryData($inputs);
 
         $tabular_data = [];
 
@@ -348,7 +376,7 @@ class Reports extends Secure_Controller
                 'tax'        => to_currency_tax($row['tax']),
                 'total'      => to_currency($row['total']),
                 'cost'       => to_currency($row['cost']),
-                'profit'     => to_currency($row['profit']),
+                'profit'     => to_currency($row['profit'])
             ];
         }
 
@@ -357,7 +385,7 @@ class Reports extends Secure_Controller
             'subtitle'     => $this->_get_subtitle_report(['start_date' => $start_date, 'end_date' => $end_date]),
             'headers'      => $this->summary_items->getDataColumns(),
             'data'         => $tabular_data,
-            'summary_data' => $summary,
+            'summary_data' => $summary
         ];
 
         echo view('reports/tabular', $data);
@@ -365,6 +393,11 @@ class Reports extends Secure_Controller
 
     /**
      * Summary Employees report.
+     * @param string $start_date
+     * @param string $end_date
+     * @param string $sale_type
+     * @param string $location_id
+     * @return void
      */
     public function summary_employees(string $start_date, string $end_date, string $sale_type, string $location_id = 'all'): void
     {
@@ -374,11 +407,11 @@ class Reports extends Secure_Controller
             'start_date'  => $start_date,
             'end_date'    => $end_date,
             'sale_type'   => $sale_type,
-            'location_id' => $location_id,
+            'location_id' => $location_id
         ];
 
         $report_data = $this->summary_employees->getData($inputs);
-        $summary     = $this->summary_employees->getSummaryData($inputs);
+        $summary = $this->summary_employees->getSummaryData($inputs);
 
         $tabular_data = [];
 
@@ -391,7 +424,7 @@ class Reports extends Secure_Controller
                 'tax'           => to_currency_tax($row['tax']),
                 'total'         => to_currency($row['total']),
                 'cost'          => to_currency($row['cost']),
-                'profit'        => to_currency($row['profit']),
+                'profit'        => to_currency($row['profit'])
             ];
         }
 
@@ -400,7 +433,7 @@ class Reports extends Secure_Controller
             'subtitle'     => $this->_get_subtitle_report(['start_date' => $start_date, 'end_date' => $end_date]),
             'headers'      => $this->summary_employees->getDataColumns(),
             'data'         => $tabular_data,
-            'summary_data' => $summary,
+            'summary_data' => $summary
         ];
 
         echo view('reports/tabular', $data);
@@ -408,6 +441,11 @@ class Reports extends Secure_Controller
 
     /**
      * Summary Taxes report.
+     * @param string $start_date
+     * @param string $end_date
+     * @param string $sale_type
+     * @param string $location_id
+     * @return void
      */
     public function summary_taxes(string $start_date, string $end_date, string $sale_type, string $location_id = 'all'): void
     {   // TODO: Duplicate Code
@@ -417,11 +455,11 @@ class Reports extends Secure_Controller
             'start_date'  => $start_date,
             'end_date'    => $end_date,
             'sale_type'   => $sale_type,
-            'location_id' => $location_id,
+            'location_id' => $location_id
         ];
 
         $report_data = $this->summary_taxes->getData($inputs);
-        $summary     = $this->summary_taxes->getSummaryData($inputs);
+        $summary = $this->summary_taxes->getSummaryData($inputs);
 
         $tabular_data = [];
 
@@ -432,7 +470,7 @@ class Reports extends Secure_Controller
                 'report_count' => $row['count'],
                 'subtotal'     => to_currency($row['subtotal']),
                 'tax'          => to_currency_tax($row['tax']),
-                'total'        => to_currency($row['total']),
+                'total'        => to_currency($row['total'])
             ];
         }
 
@@ -441,7 +479,7 @@ class Reports extends Secure_Controller
             'subtitle'     => $this->_get_subtitle_report(['start_date' => $start_date, 'end_date' => $end_date]),
             'headers'      => $this->summary_taxes->getDataColumns(),
             'data'         => $tabular_data,
-            'summary_data' => $summary,
+            'summary_data' => $summary
         ];
 
         echo view('reports/tabular', $data);
@@ -458,21 +496,20 @@ class Reports extends Secure_Controller
             'start_date'  => $start_date,
             'end_date'    => $end_date,
             'sale_type'   => $sale_type,
-            'location_id' => $location_id,
+            'location_id' => $location_id
         ];
 
         $report_data = $this->summary_sales_taxes->getData($inputs);
-        $summary     = $this->summary_sales_taxes->getSummaryData($inputs);
+        $summary = $this->summary_sales_taxes->getSummaryData($inputs);
 
         $tabular_data = [];
-
         foreach ($report_data as $row) {
             $tabular_data[] = [
                 'reporting_authority' => $row['reporting_authority'],
                 'jurisdiction_name'   => $row['jurisdiction_name'],
                 'tax_category'        => $row['tax_category'],
                 'tax_rate'            => $row['tax_rate'],
-                'tax'                 => to_currency_tax($row['tax']),
+                'tax'                 => to_currency_tax($row['tax'])
             ];
         }
 
@@ -481,7 +518,7 @@ class Reports extends Secure_Controller
             'subtitle'     => $this->_get_subtitle_report(['start_date' => $start_date, 'end_date' => $end_date]),
             'headers'      => $this->summary_sales_taxes->getDataColumns(),
             'data'         => $tabular_data,
-            'summary_data' => $summary,
+            'summary_data' => $summary
         ];
 
         echo view('reports/tabular', $data);
@@ -490,25 +527,26 @@ class Reports extends Secure_Controller
     /**
      * Summary Discounts report input. Used in app/Config/Routes.php
      *
+     * @return void
      * @noinspection PhpUnused
      */
     public function summary_discounts_input(): void
     {
         $this->clearCache();
 
-        $stock_locations               = $data = $this->stock_location->get_allowed_locations('sales');
-        $stock_locations['all']        = lang('Reports.all');
-        $data['stock_locations']       = array_reverse($stock_locations, true);
-        $data['mode']                  = 'sale';
+        $stock_locations = $data = $this->stock_location->get_allowed_locations('sales');
+        $stock_locations['all'] = lang('Reports.all');
+        $data['stock_locations'] = array_reverse($stock_locations, true);
+        $data['mode'] = 'sale';
         $data['discount_type_options'] = ['0' => lang('Reports.discount_percent'), '1' => lang('Reports.discount_fixed')];
-        $data['sale_type_options']     = $this->get_sale_type_options();
+        $data['sale_type_options'] = $this->get_sale_type_options();
 
         echo view('reports/date_input', $data);
     }
 
     /**
      * Summary Discounts report
-     */
+     **/
     public function summary_discounts(string $start_date, string $end_date, string $sale_type, string $location_id = 'all', int $discount_type = 0): void
     {   // TODO: Duplicated Code
         $this->clearCache();
@@ -518,19 +556,18 @@ class Reports extends Secure_Controller
             'end_date'      => $end_date,
             'sale_type'     => $sale_type,
             'location_id'   => $location_id,
-            'discount_type' => $discount_type,
+            'discount_type' => $discount_type
         ];
 
         $report_data = $this->summary_discounts->getData($inputs);
-        $summary     = $this->summary_discounts->getSummaryData($inputs);
+        $summary = $this->summary_discounts->getSummaryData($inputs);
 
         $tabular_data = [];
-
         foreach ($report_data as $row) {
             $tabular_data[] = [
                 'total'    => to_currency($row['total']),
                 'discount' => $row['discount'],
-                'count'    => $row['count'],
+                'count'    => $row['count']
             ];
         }
 
@@ -539,7 +576,7 @@ class Reports extends Secure_Controller
             'subtitle'     => $this->_get_subtitle_report(['start_date' => $start_date, 'end_date' => $end_date]),
             'headers'      => $this->summary_discounts->getDataColumns(),
             'data'         => $tabular_data,
-            'summary_data' => $summary,
+            'summary_data' => $summary
         ];
 
         echo view('reports/tabular', $data);
@@ -556,16 +593,16 @@ class Reports extends Secure_Controller
             'start_date'  => $start_date,
             'end_date'    => $end_date,
             'sale_type'   => 'complete',
-            'location_id' => 'all',
+            'location_id' => 'all'
         ];
 
         $report_data = $this->summary_payments->getData($inputs);
-        $summary     = $this->summary_payments->getSummaryData($inputs);
+        $summary = $this->summary_payments->getSummaryData($inputs);
 
         $tabular_data = [];
 
         foreach ($report_data as $row) {
-            if ($row['trans_group'] === '<HR>') {
+            if ($row['trans_group'] == '<HR>') {
                 $tabular_data[] = [
                     'trans_group'    => '--',
                     'trans_type'     => '--',
@@ -573,7 +610,7 @@ class Reports extends Secure_Controller
                     'trans_amount'   => '--',
                     'trans_payments' => '--',
                     'trans_refunded' => '--',
-                    'trans_due'      => '--',
+                    'trans_due'      => '--'
                 ];
             } else {
                 if (empty($row['trans_type'])) {
@@ -587,7 +624,7 @@ class Reports extends Secure_Controller
                     'trans_amount'   => to_currency($row['trans_amount']),
                     'trans_payments' => to_currency($row['trans_payments']),
                     'trans_refunded' => to_currency($row['trans_refunded']),
-                    'trans_due'      => to_currency($row['trans_due']),
+                    'trans_due'      => to_currency($row['trans_due'])
                 ];
             }
         }
@@ -597,7 +634,7 @@ class Reports extends Secure_Controller
             'subtitle'     => $this->_get_subtitle_report(['start_date' => $start_date, 'end_date' => $end_date]),
             'headers'      => $this->summary_payments->getDataColumns(),
             'data'         => $tabular_data,
-            'summary_data' => $summary,
+            'summary_data' => $summary
         ];
 
         echo view('reports/tabular', $data);
@@ -606,16 +643,17 @@ class Reports extends Secure_Controller
     /**
      * Input for reports that require only a date range. Used in app/Config/Routes.php
      *
+     * @return void
      * @noinspection PhpUnused
      */
     public function date_input(): void
     {   // TODO: Duplicated Code
         $this->clearCache();
 
-        $stock_locations           = $data = $this->stock_location->get_allowed_locations('sales');
-        $stock_locations['all']    = lang('Reports.all');
-        $data['stock_locations']   = array_reverse($stock_locations, true);
-        $data['mode']              = 'sale';
+        $stock_locations = $data = $this->stock_location->get_allowed_locations('sales');
+        $stock_locations['all'] = lang('Reports.all');
+        $data['stock_locations'] = array_reverse($stock_locations, true);
+        $data['mode'] = 'sale';
         $data['sale_type_options'] = $this->get_sale_type_options();
 
         echo view('reports/date_input', $data);
@@ -624,6 +662,7 @@ class Reports extends Secure_Controller
     /**
      * Input for reports that require only a date range. Used in app/Config/Routes.php
      *
+     * @return void
      * @noinspection PhpUnused
      */
     public function date_input_only(): void
@@ -637,16 +676,17 @@ class Reports extends Secure_Controller
     /**
      * Input for reports that require only a date range. Used in app/Config/Routes.php
      *
+     * @return void
      * @noinspection PhpUnused
      */
     public function date_input_sales(): void
     {   // TODO: Duplicated Code
         $this->clearCache();
 
-        $stock_locations           = $data = $this->stock_location->get_allowed_locations('sales');
-        $stock_locations['all']    = lang('Reports.all');
-        $data['stock_locations']   = array_reverse($stock_locations, true);
-        $data['mode']              = 'sale';
+        $stock_locations = $data = $this->stock_location->get_allowed_locations('sales');
+        $stock_locations['all'] =  lang('Reports.all');
+        $data['stock_locations'] = array_reverse($stock_locations, true);
+        $data['mode'] = 'sale';
         $data['sale_type_options'] = $this->get_sale_type_options();
 
         echo view('reports/date_input', $data);
@@ -655,14 +695,15 @@ class Reports extends Secure_Controller
     /**
      * Receivings date input. Used in app/Config/Routes.php
      *
+     * @return void
      * @noinspection PhpUnused
      */
     public function date_input_recv(): void
     {
-        $stock_locations         = $data = $this->stock_location->get_allowed_locations('receivings');
-        $stock_locations['all']  = lang('Reports.all');
+        $stock_locations = $data = $this->stock_location->get_allowed_locations('receivings');
+        $stock_locations['all'] =  lang('Reports.all');
         $data['stock_locations'] = array_reverse($stock_locations, true);
-        $data['mode']            = 'receiving';
+        $data['mode'] = 'receiving';
 
         echo view('reports/date_input', $data);
     }
@@ -670,6 +711,10 @@ class Reports extends Secure_Controller
     /**
      * Graphical Expenses by Categories report. Used in app/Config/Routes.php
      *
+     * @param string $start_date
+     * @param string $end_date
+     * @param string $sale_type
+     * @return void
      * @noinspection PhpUnused
      */
     public function graphical_summary_expenses_categories(string $start_date, string $end_date, string $sale_type): void
@@ -679,20 +724,19 @@ class Reports extends Secure_Controller
         $inputs = [
             'start_date' => $start_date,
             'end_date'   => $end_date,
-            'sale_type'  => $sale_type,
+            'sale_type'  => $sale_type
         ];
 
         $report_data = $this->summary_expenses_categories->getData($inputs);
-        $summary     = $this->summary_expenses_categories->getSummaryData($inputs);
+        $summary = $this->summary_expenses_categories->getSummaryData($inputs);
 
         $labels = [];
         $series = [];
-
         foreach ($report_data as $row) {
             $labels[] = $row['category_name'];
             $series[] = [
                 'meta'  => $row['category_name'] . ' ' . round($row['total_amount'] / $summary['expenses_total_amount'] * 100, 2) . '%',
-                'value' => $row['total_amount'],
+                'value' => $row['total_amount']
             ];
         }
 
@@ -703,7 +747,7 @@ class Reports extends Secure_Controller
             'labels_1'       => $labels,
             'series_data_1'  => $series,
             'summary_data_1' => $summary,
-            'show_currency'  => true,
+            'show_currency'  => true
         ];
 
         echo view('reports/graphical', $data);
@@ -711,6 +755,12 @@ class Reports extends Secure_Controller
 
     /**
      * Graphical summary sales report
+     *
+     * @param string $start_date
+     * @param string $end_date
+     * @param string $sale_type
+     * @param string $location_id
+     * @return void
      */
     public function graphical_summary_sales(string $start_date, string $end_date, string $sale_type, string $location_id = 'all'): void
     {
@@ -720,17 +770,16 @@ class Reports extends Secure_Controller
             'start_date'  => $start_date,
             'end_date'    => $end_date,
             'sale_type'   => $sale_type,
-            'location_id' => $location_id,
+            'location_id' => $location_id
         ];
 
         $report_data = $this->summary_sales->getData($inputs);
-        $summary     = $this->summary_sales->getSummaryData($inputs);
+        $summary = $this->summary_sales->getSummaryData($inputs);
 
         $labels = [];
         $series = [];
-
         foreach ($report_data as $row) {
-            $date     = to_date(strtotime($row['sale_date']));
+            $date = to_date(strtotime($row['sale_date']));
             $labels[] = $date;
             $series[] = ['meta' => $date, 'value' => $row['total']];
         }
@@ -744,7 +793,7 @@ class Reports extends Secure_Controller
             'summary_data_1' => $summary,
             'yaxis_title'    => lang('Reports.revenue'),
             'xaxis_title'    => lang('Reports.date'),
-            'show_currency'  => true,
+            'show_currency'  => true
         ];
 
         echo view('reports/graphical', $data);
@@ -752,6 +801,12 @@ class Reports extends Secure_Controller
 
     /**
      * Graphical summary items report
+     *
+     * @param string $start_date
+     * @param string $end_date
+     * @param string $sale_type
+     * @param string $location_id
+     * @return void
      */
     public function graphical_summary_items(string $start_date, string $end_date, string $sale_type, string $location_id = 'all'): void
     {
@@ -761,11 +816,12 @@ class Reports extends Secure_Controller
             'start_date'  => $start_date,
             'end_date'    => $end_date,
             'sale_type'   => $sale_type,
-            'location_id' => $location_id,
+            'location_id' => $location_id
         ];
 
+
         $report_data = $this->summary_items->getData($inputs);
-        $summary     = $this->summary_items->getSummaryData($inputs);
+        $summary = $this->summary_items->getSummaryData($inputs);
 
         $labels = [];
         $series = [];
@@ -784,7 +840,7 @@ class Reports extends Secure_Controller
             'summary_data_1' => $summary,
             'yaxis_title'    => lang('Reports.items'),
             'xaxis_title'    => lang('Reports.revenue'),
-            'show_currency'  => true,
+            'show_currency'  => true
         ];
 
         echo view('reports/graphical', $data);
@@ -792,6 +848,12 @@ class Reports extends Secure_Controller
 
     /**
      * Graphical summary customers report.
+     *
+     * @param string $start_date
+     * @param string $end_date
+     * @param string $sale_type
+     * @param string $location_id
+     * @return void
      */
     public function graphical_summary_categories(string $start_date, string $end_date, string $sale_type, string $location_id = 'all'): void
     {   // TODO: Duplicated Code
@@ -801,15 +863,14 @@ class Reports extends Secure_Controller
             'start_date'  => $start_date,
             'end_date'    => $end_date,
             'sale_type'   => $sale_type,
-            'location_id' => $location_id,
+            'location_id' => $location_id
         ];
 
         $report_data = $this->summary_categories->getData($inputs);
-        $summary     = $this->summary_categories->getSummaryData($inputs);
+        $summary = $this->summary_categories->getSummaryData($inputs);
 
         $labels = [];
         $series = [];
-
         foreach ($report_data as $row) {
             $labels[] = $row['category'];
             $series[] = ['meta' => $row['category'] . ' ' . round($row['total'] / $summary['total'] * 100, 2) . '%', 'value' => $row['total']];
@@ -822,7 +883,7 @@ class Reports extends Secure_Controller
             'labels_1'       => $labels,
             'series_data_1'  => $series,
             'summary_data_1' => $summary,
-            'show_currency'  => true,
+            'show_currency'  => true
         ];
 
         echo view('reports/graphical', $data);
@@ -830,6 +891,12 @@ class Reports extends Secure_Controller
 
     /**
      * Graphical summary suppliers report
+     *
+     * @param string $start_date
+     * @param string $end_date
+     * @param string $sale_type
+     * @param string $location_id
+     * @return void
      */
     public function graphical_summary_suppliers(string $start_date, string $end_date, string $sale_type, string $location_id = 'all'): void
     {   // TODO: Duplicated Code
@@ -839,11 +906,12 @@ class Reports extends Secure_Controller
             'start_date'  => $start_date,
             'end_date'    => $end_date,
             'sale_type'   => $sale_type,
-            'location_id' => $location_id,
+            'location_id' => $location_id
         ];
 
+
         $report_data = $this->summary_suppliers->getData($inputs);
-        $summary     = $this->summary_suppliers->getSummaryData($inputs);
+        $summary = $this->summary_suppliers->getSummaryData($inputs);
 
         $labels = [];
         $series = [];
@@ -860,7 +928,7 @@ class Reports extends Secure_Controller
             'labels_1'       => $labels,
             'series_data_1'  => $series,
             'summary_data_1' => $summary,
-            'show_currency'  => true,
+            'show_currency'  => true
         ];
 
         echo view('reports/graphical', $data);
@@ -868,6 +936,12 @@ class Reports extends Secure_Controller
 
     /**
      * Graphical summary employees report
+     *
+     * @param string $start_date
+     * @param string $end_date
+     * @param string $sale_type
+     * @param string $location_id
+     * @return void
      */
     public function graphical_summary_employees(string $start_date, string $end_date, string $sale_type, string $location_id = 'all'): void
     {
@@ -877,11 +951,11 @@ class Reports extends Secure_Controller
             'start_date'  => $start_date,
             'end_date'    => $end_date,
             'sale_type'   => $sale_type,
-            'location_id' => $location_id,
+            'location_id' => $location_id
         ];
 
         $report_data = $this->summary_employees->getData($inputs);
-        $summary     = $this->summary_employees->getSummaryData($inputs);
+        $summary = $this->summary_employees->getSummaryData($inputs);
 
         $labels = [];
         $series = [];
@@ -898,7 +972,7 @@ class Reports extends Secure_Controller
             'labels_1'       => $labels,
             'series_data_1'  => $series,
             'summary_data_1' => $summary,
-            'show_currency'  => true,
+            'show_currency'  => true
         ];
 
         echo view('reports/graphical', $data);
@@ -906,6 +980,12 @@ class Reports extends Secure_Controller
 
     /**
      * Graphical summary taxes report
+     *
+     * @param string $start_date
+     * @param string $end_date
+     * @param string $sale_type
+     * @param string $location_id
+     * @return void
      */
     public function graphical_summary_taxes(string $start_date, string $end_date, string $sale_type, string $location_id = 'all'): void
     {   // TODO: Duplicated Code
@@ -915,11 +995,11 @@ class Reports extends Secure_Controller
             'start_date'  => $start_date,
             'end_date'    => $end_date,
             'sale_type'   => $sale_type,
-            'location_id' => $location_id,
+            'location_id' => $location_id
         ];
 
         $report_data = $this->summary_taxes->getData($inputs);
-        $summary     = $this->summary_taxes->getSummaryData($inputs);
+        $summary = $this->summary_taxes->getSummaryData($inputs);
 
         $labels = [];
         $series = [];
@@ -936,7 +1016,7 @@ class Reports extends Secure_Controller
             'labels_1'       => $labels,
             'series_data_1'  => $series,
             'summary_data_1' => $summary,
-            'show_currency'  => true,
+            'show_currency'  => true
         ];
 
         echo view('reports/graphical', $data);
@@ -944,6 +1024,12 @@ class Reports extends Secure_Controller
 
     /**
      * Graphical summary sales taxes report
+     *
+     * @param string $start_date
+     * @param string $end_date
+     * @param string $sale_type
+     * @param string $location_id
+     * @return void
      */
     public function graphical_summary_sales_taxes(string $start_date, string $end_date, string $sale_type, string $location_id = 'all'): void
     {   // TODO: Duplicated Code
@@ -953,11 +1039,11 @@ class Reports extends Secure_Controller
             'start_date'  => $start_date,
             'end_date'    => $end_date,
             'sale_type'   => $sale_type,
-            'location_id' => $location_id,
+            'location_id' => $location_id
         ];
 
         $report_data = $this->summary_sales_taxes->getData($inputs);
-        $summary     = $this->summary_sales_taxes->getSummaryData($inputs);
+        $summary = $this->summary_sales_taxes->getSummaryData($inputs);
 
         $labels = [];
         $series = [];
@@ -974,7 +1060,7 @@ class Reports extends Secure_Controller
             'labels_1'       => $labels,
             'series_data_1'  => $series,
             'summary_data_1' => $summary,
-            'show_currency'  => true,
+            'show_currency'  => true
         ];
 
         echo view('reports/graphical', $data);
@@ -982,6 +1068,12 @@ class Reports extends Secure_Controller
 
     /**
      * Graphical summary customers report.
+     *
+     * @param string $start_date
+     * @param string $end_date
+     * @param string $sale_type
+     * @param string $location_id
+     * @return void
      */
     public function graphical_summary_customers(string $start_date, string $end_date, string $sale_type, string $location_id = 'all'): void
     {   // TODO: Duplicated Code
@@ -991,11 +1083,11 @@ class Reports extends Secure_Controller
             'start_date'  => $start_date,
             'end_date'    => $end_date,
             'sale_type'   => $sale_type,
-            'location_id' => $location_id,
+            'location_id' => $location_id
         ];
 
         $report_data = $this->summary_customers->getData($inputs);
-        $summary     = $this->summary_customers->getSummaryData($inputs);
+        $summary = $this->summary_customers->getSummaryData($inputs);
 
         $labels = [];
         $series = [];
@@ -1014,7 +1106,7 @@ class Reports extends Secure_Controller
             'summary_data_1' => $summary,
             'yaxis_title'    => lang('Reports.customers'),
             'xaxis_title'    => lang('Reports.revenue'),
-            'show_currency'  => true,
+            'show_currency'  => true
         ];
 
         echo view('reports/graphical', $data);
@@ -1023,10 +1115,11 @@ class Reports extends Secure_Controller
     /**
      * Graphical summary discounts report. Used in app/Config/Routes.php
      *
-     * @param string $start_date  Start date of the report
-     * @param string $end_date    End date of the report
+     * @param string $start_date Start date of the report
+     * @param string $end_date End date of the report
+     * @param string $sale_type
      * @param string $location_id ID of the location to be reported or 'all' if none is specified
-     *
+     * @param int $discount_type
      * @noinspection PhpUnused
      */
     public function graphical_summary_discounts(string $start_date, string $end_date, string $sale_type, string $location_id = 'all', int $discount_type = 0): void
@@ -1038,11 +1131,11 @@ class Reports extends Secure_Controller
             'end_date'      => $end_date,
             'sale_type'     => $sale_type,
             'location_id'   => $location_id,
-            'discount_type' => $discount_type,
+            'discount_type' => $discount_type
         ];
 
         $report_data = $this->summary_discounts->getData($inputs);
-        $summary     = $this->summary_discounts->getSummaryData($inputs);
+        $summary = $this->summary_discounts->getSummaryData($inputs);
 
         $labels = [];
         $series = [];
@@ -1061,7 +1154,7 @@ class Reports extends Secure_Controller
             'summary_data_1' => $summary,
             'yaxis_title'    => lang('Reports.count'),
             'xaxis_title'    => lang('Reports.discount'),
-            'show_currency'  => false,
+            'show_currency'  => false
         ];
 
         echo view('reports/graphical', $data);
@@ -1069,6 +1162,12 @@ class Reports extends Secure_Controller
 
     /**
      * Graphical summary payments report
+     *
+     * @param string $start_date
+     * @param string $end_date
+     * @param string $sale_type
+     * @param string $location_id
+     * @return void
      */
     public function graphical_summary_payments(string $start_date, string $end_date, string $sale_type, string $location_id = 'all'): void
     {
@@ -1078,17 +1177,17 @@ class Reports extends Secure_Controller
             'start_date'  => $start_date,
             'end_date'    => $end_date,
             'sale_type'   => $sale_type,
-            'location_id' => $location_id,
+            'location_id' => $location_id
         ];
 
         $report_data = $this->summary_payments->getData($inputs);
-        $summary     = $this->summary_payments->getSummaryData($inputs);
+        $summary = $this->summary_payments->getSummaryData($inputs);
 
         $labels = [];
         $series = [];
 
         foreach ($report_data as $row) {
-            if ($row['trans_group'] === lang('Reports.trans_payments') && ! empty($row['trans_amount'])) {
+            if ($row['trans_group'] == lang('Reports.trans_payments') && !empty($row['trans_amount'])) {
                 $labels[] = $row['trans_type'];
                 $series[] = ['meta' => $row['trans_type'] . ' ' . round($row['trans_amount'] / $summary['total'] * 100, 2) . '%', 'value' => $row['trans_amount']];
             }
@@ -1101,7 +1200,7 @@ class Reports extends Secure_Controller
             'labels_1'       => $labels,
             'series_data_1'  => $series,
             'summary_data_1' => $summary,
-            'show_currency'  => true,
+            'show_currency'  => true
         ];
 
         echo view('reports/graphical', $data);
@@ -1110,30 +1209,33 @@ class Reports extends Secure_Controller
     /**
      * Gets the specific customer input view. Used in app/Config/Routes.php
      *
+     * @return void
      * @noinspection PhpUnused
      */
     public function specific_customer_input(): void
     {
         $this->clearCache();
 
-        $data                        = [];
+        $data = [];
         $data['specific_input_name'] = lang('Reports.customer');
-        $customers                   = [];
-
+        $customers = [];
         foreach ($this->customer->get_all()->getResult() as $customer) {
             if (isset($customer->company_name)) {
-                $customers[$customer->person_id] = $customer->first_name . ' ' . $customer->last_name . '  [ ' . $customer->company_name . ' ] ';
+                $customers[$customer->person_id] = $customer->first_name . ' ' . $customer->last_name . ' ' . ' [ ' . $customer->company_name . ' ] ';
             } else {
                 $customers[$customer->person_id] = $customer->first_name . ' ' . $customer->last_name;
             }
         }
         $data['specific_input_data'] = $customers;
-        $data['sale_type_options']   = $this->get_sale_type_options();
+        $data['sale_type_options'] = $this->get_sale_type_options();
 
         $data['payment_type'] = $this->get_payment_type();
         echo view('reports/specific_customer_input', $data);
     }
 
+    /**
+     * @return array
+     */
     public function get_payment_type(): array
     {
         return [
@@ -1143,13 +1245,19 @@ class Reports extends Secure_Controller
             'check'    => lang('Sales.check'),
             'credit'   => lang('Sales.credit'),
             'debit'    => lang('Sales.debit'),
-            'invoices' => lang('Sales.invoice'),
+            'invoices' => lang('Sales.invoice')
         ];
     }
 
     /**
      * Detailed customer report. Used in app/Config/Routes.php
      *
+     * @param string $start_date
+     * @param string $end_date
+     * @param string $customer_id
+     * @param string $sale_type
+     * @param string $payment_type
+     * @return void
      * @noinspection PhpUnused
      */
     public function specific_customers(string $start_date, string $end_date, string $customer_id, string $sale_type, string $payment_type): void
@@ -1162,19 +1270,19 @@ class Reports extends Secure_Controller
 
         $specific_customer->create($inputs);
 
-        $headers     = $specific_customer->getDataColumns();
+        $headers = $specific_customer->getDataColumns();
         $report_data = $specific_customer->getData($inputs);
 
-        $summary_data         = [];
-        $details_data         = [];
+        $summary_data = [];
+        $details_data = [];
         $details_data_rewards = [];
 
         foreach ($report_data['summary'] as $key => $row) {
-            if ($row['sale_status'] === CANCELED) {
-                $button_key   = 'data-btn-restore';
+            if ($row['sale_status'] == CANCELED) {
+                $button_key = 'data-btn-restore';
                 $button_label = lang('Common.restore');
             } else {
-                $button_key   = 'data-btn-delete';
+                $button_key = 'data-btn-delete';
                 $button_label = lang('Common.delete');
             }
 
@@ -1198,9 +1306,9 @@ class Reports extends Secure_Controller
                         'class'           => 'modal-dlg print_hide',
                         $button_key       => $button_label,
                         'data-btn-submit' => lang('Common.submit'),
-                        'title'           => lang('Sales.update'),
-                    ],
-                ),
+                        'title'           => lang('Sales.update')
+                    ]
+                )
             ];
 
             foreach ($report_data['details'][$key] as $drow) {    // TODO: Duplicated Code
@@ -1215,7 +1323,7 @@ class Reports extends Secure_Controller
                     to_currency($drow['total']),
                     to_currency($drow['cost']),
                     to_currency($drow['profit']),
-                    ($drow['discount_type'] === PERCENT) ? $drow['discount'] . '%' : to_currency($drow['discount']),
+                    ($drow['discount_type'] == PERCENT) ? $drow['discount'] . '%' : to_currency($drow['discount'])
                 ];
             }
 
@@ -1227,8 +1335,8 @@ class Reports extends Secure_Controller
         }
 
         $customer_info = $this->customer->get_info($customer_id);
-        $customer_name = ! empty($customer_info->company_name)    // TODO: This variable is not used anywhere in the code. Should it be or can it be deleted?
-            ? "[ {$customer_info->company_name} ]"
+        $customer_name = !empty($customer_info->company_name)    // TODO: This variable is not used anywhere in the code. Should it be or can it be deleted?
+            ? "[ $customer_info->company_name ]"
             : $customer_info->company_name;
 
         // TODO: Duplicated Code
@@ -1240,7 +1348,7 @@ class Reports extends Secure_Controller
             'summary_data'         => $summary_data,
             'details_data'         => $details_data,
             'details_data_rewards' => $details_data_rewards,
-            'overall_summary_data' => $specific_customer->getSummaryData($inputs),
+            'overall_summary_data' => $specific_customer->getSummaryData($inputs)
         ];
 
         echo view('reports/tabular_details', $data);
@@ -1249,22 +1357,22 @@ class Reports extends Secure_Controller
     /**
      * Detailed employee report input form. Used in app/Config/Routes.php
      *
+     * @return void
      * @noinspection PhpUnused
      */
     public function specific_employee_input(): void
     {
         $this->clearCache();
 
-        $data                        = [];
+        $data = [];
         $data['specific_input_name'] = lang('Reports.employee');
 
         $employees = [];
-
         foreach ($this->employee->get_all()->getResult() as $employee) {
             $employees[$employee->person_id] = $employee->first_name . ' ' . $employee->last_name;
         }
         $data['specific_input_data'] = $employees;
-        $data['sale_type_options']   = $this->get_sale_type_options();
+        $data['sale_type_options'] = $this->get_sale_type_options();
 
         echo view('reports/specific_input', $data);
     }
@@ -1272,6 +1380,11 @@ class Reports extends Secure_Controller
     /**
      * Detailed employee report. Used in app/Config/Routes.php
      *
+     * @param string $start_date
+     * @param string $end_date
+     * @param string $employee_id
+     * @param string $sale_type
+     * @return void
      * @noinspection PhpUnused
      */
     public function specific_employees(string $start_date, string $end_date, string $employee_id, string $sale_type): void
@@ -1284,19 +1397,19 @@ class Reports extends Secure_Controller
 
         $specific_employee->create($inputs);
 
-        $headers     = $specific_employee->getDataColumns();
+        $headers = $specific_employee->getDataColumns();
         $report_data = $specific_employee->getData($inputs);
 
-        $summary_data         = [];
-        $details_data         = [];
+        $summary_data = [];
+        $details_data = [];
         $details_data_rewards = [];
 
         foreach ($report_data['summary'] as $key => $row) {
-            if ($row['sale_status'] === CANCELED) {
-                $button_key   = 'data-btn-restore';
+            if ($row['sale_status'] == CANCELED) {
+                $button_key = 'data-btn-restore';
                 $button_label = lang('Common.restore');
             } else {
-                $button_key   = 'data-btn-delete';
+                $button_key = 'data-btn-delete';
                 $button_label = lang('Common.delete');
             }
 
@@ -1320,11 +1433,10 @@ class Reports extends Secure_Controller
                         'class'           => 'modal-dlg print_hide',
                         $button_key       => $button_label,
                         'data-btn-submit' => lang('Common.submit'),
-                        'title'           => lang('Sales.update'),
-                    ],
-                ),
+                        'title'           => lang('Sales.update')
+                    ]
+                )
             ];
-
             // TODO: Duplicated Code
             foreach ($report_data['details'][$key] as $drow) {
                 $details_data[$row['sale_id']][] = [
@@ -1338,7 +1450,7 @@ class Reports extends Secure_Controller
                     to_currency($drow['total']),
                     to_currency($drow['cost']),
                     to_currency($drow['profit']),
-                    ($drow['discount_type'] === PERCENT) ? $drow['discount'] . '%' : to_currency($drow['discount']),
+                    ($drow['discount_type'] == PERCENT) ? $drow['discount'] . '%' : to_currency($drow['discount'])
                 ];
             }
 
@@ -1359,7 +1471,7 @@ class Reports extends Secure_Controller
             'summary_data'         => $summary_data,
             'details_data'         => $details_data,
             'details_data_rewards' => $details_data_rewards,
-            'overall_summary_data' => $specific_employee->getSummaryData($inputs),
+            'overall_summary_data' => $specific_employee->getSummaryData($inputs)
         ];
 
         echo view('reports/tabular_details', $data);
@@ -1368,23 +1480,23 @@ class Reports extends Secure_Controller
     /**
      * Detailed discount report. Used in app/Config/Routes.php
      *
+     * @return void
      * @noinspection PhpUnused
      */
     public function specific_discount_input(): void
     {
         $this->clearCache();
 
-        $data                        = [];
+        $data = [];
         $data['specific_input_name'] = lang('Reports.discount');
 
         $discounts = [];
-
         for ($i = 0; $i <= 100; $i += 10) {
             $discounts[$i] = $i . '%';
         }
-        $data['specific_input_data']   = $discounts;
+        $data['specific_input_data'] = $discounts;
         $data['discount_type_options'] = ['0' => lang('Reports.discount_percent'), '1' => lang('Reports.discount_fixed')];
-        $data['sale_type_options']     = $this->get_sale_type_options();
+        $data['sale_type_options'] = $this->get_sale_type_options();
 
         echo view('reports/specific_input', $data);
     }
@@ -1392,6 +1504,12 @@ class Reports extends Secure_Controller
     /**
      * Detailed discount report. Used in app/Config/Routes.php
      *
+     * @param string $start_date
+     * @param string $end_date
+     * @param string $discount
+     * @param string $sale_type
+     * @param string $discount_type
+     * @return void
      * @noinspection PhpUnused
      */
     public function specific_discounts(string $start_date, string $end_date, string $discount, string $sale_type, string $discount_type): void
@@ -1403,26 +1521,26 @@ class Reports extends Secure_Controller
             'end_date'      => $end_date,
             'discount'      => $discount,
             'sale_type'     => $sale_type,
-            'discount_type' => $discount_type,
+            'discount_type' => $discount_type
         ];
 
         $specific_discount = model(Specific_discount::class);
 
         $specific_discount->create($inputs);
 
-        $headers     = $specific_discount->getDataColumns();
+        $headers = $specific_discount->getDataColumns();
         $report_data = $specific_discount->getData($inputs);
 
-        $summary_data         = [];
-        $details_data         = [];
+        $summary_data = [];
+        $details_data = [];
         $details_data_rewards = [];
 
         foreach ($report_data['summary'] as $key => $row) {    // TODO: Duplicated Code
-            if ($row['sale_status'] === CANCELED) {
-                $button_key   = 'data-btn-restore';
+            if ($row['sale_status'] == CANCELED) {
+                $button_key = 'data-btn-restore';
                 $button_label = lang('Common.restore');
             } else {
-                $button_key   = 'data-btn-delete';
+                $button_key = 'data-btn-delete';
                 $button_label = lang('Common.delete');
             }
 
@@ -1447,11 +1565,10 @@ class Reports extends Secure_Controller
                         'class'           => 'modal-dlg print_hide',
                         $button_key       => $button_label,
                         'data-btn-submit' => lang('Common.submit'),
-                        'title'           => lang('Sales.update'),
-                    ],
-                ),
+                        'title'           => lang('Sales.update')
+                    ]
+                )
             ];
-
             // TODO: Duplicated Code
             foreach ($report_data['details'][$key] as $drow) {
                 $details_data[$row['sale_id']][] = [
@@ -1465,9 +1582,9 @@ class Reports extends Secure_Controller
                     to_currency($drow['total']),
                     to_currency($drow['cost']),
                     to_currency($drow['profit']),
-                    ($drow['discount_type'] === PERCENT)
+                    ($drow['discount_type'] == PERCENT)
                         ? $drow['discount'] . '%'
-                        : to_currency($drow['discount']),
+                        : to_currency($drow['discount'])
                 ];
             }
 
@@ -1485,7 +1602,7 @@ class Reports extends Secure_Controller
             'summary_data'         => $summary_data,
             'details_data'         => $details_data,
             'details_data_rewards' => $details_data_rewards,
-            'overall_summary_data' => $specific_discount->getSummaryData($inputs),
+            'overall_summary_data' => $specific_discount->getSummaryData($inputs)
         ];
 
         echo view('reports/tabular_details', $data);
@@ -1494,6 +1611,8 @@ class Reports extends Secure_Controller
     /**
      * Gets the detailed sales data row for given sale_id. Used in app/Views/reports/tabular_details.php
      *
+     * @param string $sale_id
+     * @return void
      * @noinspection PhpUnused
      */
     public function getGet_detailed_sales_row(string $sale_id): void
@@ -1506,11 +1625,11 @@ class Reports extends Secure_Controller
 
         $report_data = $this->detailed_sales->getDataBySaleId($sale_id);
 
-        if ($report_data['sale_status'] === CANCELED) {
-            $button_key   = 'data-btn-restore';
+        if ($report_data['sale_status'] == CANCELED) {
+            $button_key = 'data-btn-restore';
             $button_label = lang('Common.restore');
         } else {
-            $button_key   = 'data-btn-delete';
+            $button_key = 'data-btn-delete';
             $button_label = lang('Common.delete');
         }
 
@@ -1534,9 +1653,9 @@ class Reports extends Secure_Controller
                     'class'           => 'modal-dlg print_hide',
                     $button_key       => $button_label,
                     'data-btn-submit' => lang('Common.submit'),
-                    'title'           => lang('Sales.update'),
-                ],
-            ),
+                    'title'           => lang('Sales.update')
+                ]
+            )
         ];
 
         echo json_encode([$sale_id => $summary_data]);
@@ -1545,28 +1664,34 @@ class Reports extends Secure_Controller
     /**
      * Detailed Supplier report input form. Used in app/Config/Routes.php
      *
+     * @return void
      * @noinspection PhpUnused
      */
     public function specific_supplier_input(): void
     {
         $this->clearCache();
 
-        $data                        = [];
+        $data = [];
         $data['specific_input_name'] = lang('Reports.supplier');
 
         $suppliers = [];
-
         foreach ($this->supplier->get_all()->getResult() as $supplier) {
             $suppliers[$supplier->person_id] = $supplier->company_name . ' (' . $supplier->first_name . ' ' . $supplier->last_name . ')';
         }
         $data['specific_input_data'] = $suppliers;
-        $data['sale_type_options']   = $this->get_sale_type_options();
+        $data['sale_type_options'] = $this->get_sale_type_options();
 
         echo view('reports/specific_input', $data);
     }
 
     /**
      * Detailed suppliers report.
+     *
+     * @param string $start_date
+     * @param string $end_date
+     * @param string $supplier_id
+     * @param string $sale_type
+     * @return void
      */
     public function specific_suppliers(string $start_date, string $end_date, string $supplier_id, string $sale_type): void
     {
@@ -1574,7 +1699,7 @@ class Reports extends Secure_Controller
             'start_date'  => $start_date,
             'end_date'    => $end_date,
             'supplier_id' => $supplier_id,
-            'sale_type'   => $sale_type,
+            'sale_type'   => $sale_type
         ];
 
         $specific_supplier = model(Specific_supplier::class);
@@ -1584,7 +1709,6 @@ class Reports extends Secure_Controller
         $report_data = $specific_supplier->getData($inputs);
 
         $tabular_data = [];
-
         foreach ($report_data as $row) {
             $tabular_data[] = [
                 'id'          => $row['sale_id'],
@@ -1599,27 +1723,30 @@ class Reports extends Secure_Controller
                 'total'       => to_currency($row['total']),
                 'cost'        => to_currency($row['cost']),
                 'profit'      => to_currency($row['profit']),
-                'discount'    => ($row['discount_type'] === PERCENT) ? $row['discount'] . '%' : to_currency($row['discount']),
+                'discount'    => ($row['discount_type'] == PERCENT) ? $row['discount'] . '%' : to_currency($row['discount'])
             ];
         }
 
         $supplier_info = $this->supplier->get_info($supplier_id);
-        $data          = [
+        $data = [
             'title'        => $supplier_info->company_name . ' (' . $supplier_info->first_name . ' ' . $supplier_info->last_name . ') ' . lang('Reports.report'),
             'subtitle'     => $this->_get_subtitle_report(['start_date' => $start_date, 'end_date' => $end_date]),
             'headers'      => $specific_supplier->getDataColumns(),
             'data'         => $tabular_data,
-            'summary_data' => $specific_supplier->getSummaryData($inputs),
+            'summary_data' => $specific_supplier->getSummaryData($inputs)
         ];
 
         echo view('reports/tabular', $data);
     }
 
+    /**
+     * @return array
+     */
     public function get_sale_type_options(): array
     {
-        $sale_type_options             = [];
+        $sale_type_options = [];
         $sale_type_options['complete'] = lang('Reports.complete');
-        $sale_type_options['sales']    = lang('Reports.completed_sales');
+        $sale_type_options['sales'] = lang('Reports.completed_sales');
         if ($this->config['invoice_enable']) {
             $sale_type_options['quotes'] = lang('Reports.quotes');
             if ($this->config['work_order_enable']) {
@@ -1627,46 +1754,52 @@ class Reports extends Secure_Controller
             }
         }
         $sale_type_options['canceled'] = lang('Reports.canceled');
-        $sale_type_options['returns']  = lang('Reports.returns');
-
+        $sale_type_options['returns'] = lang('Reports.returns');
         return $sale_type_options;
     }
 
+    /**
+     * @param string $start_date
+     * @param string $end_date
+     * @param string $sale_type
+     * @param string $location_id
+     * @return void
+     */
     public function detailed_sales(string $start_date, string $end_date, string $sale_type, string $location_id = 'all'): void
     {
         $this->clearCache();
 
-        $definition_names = $this->attribute->get_definitions_by_flags(Attribute::SHOW_IN_SALES);
+        $definition_names = $this->attribute->get_definitions_by_flags(attribute::SHOW_IN_SALES);
 
         $inputs = [
             'start_date'     => $start_date,
             'end_date'       => $end_date,
             'sale_type'      => $sale_type,
             'location_id'    => $location_id,
-            'definition_ids' => array_keys($definition_names),
+            'definition_ids' => array_keys($definition_names)
         ];
 
         $this->detailed_sales->create($inputs);
 
-        $columns            = $this->detailed_sales->getDataColumns();
+        $columns = $this->detailed_sales->getDataColumns();
         $columns['details'] = array_merge($columns['details'], $definition_names);
 
         $headers = $columns;
 
         $report_data = $this->detailed_sales->getData($inputs);
 
-        $summary_data         = [];
-        $details_data         = [];
+        $summary_data = [];
+        $details_data = [];
         $details_data_rewards = [];
 
         $show_locations = $this->stock_location->multiple_locations();
 
         foreach ($report_data['summary'] as $key => $row) {    // TODO: Duplicated Code
-            if ($row['sale_status'] === CANCELED) {
-                $button_key   = 'data-btn-restore';
+            if ($row['sale_status'] == CANCELED) {
+                $button_key = 'data-btn-restore';
                 $button_label = lang('Common.restore');
             } else {
-                $button_key   = 'data-btn-delete';
+                $button_key = 'data-btn-delete';
                 $button_label = lang('Common.delete');
             }
 
@@ -1691,9 +1824,9 @@ class Reports extends Secure_Controller
                         'class'           => 'modal-dlg print_hide',
                         $button_key       => $button_label,
                         'data-btn-submit' => lang('Common.submit'),
-                        'title'           => lang('Sales.update'),
-                    ],
-                ),
+                        'title'           => lang('Sales.update')
+                    ]
+                )
             ];
 
             foreach ($report_data['details'][$key] as $drow) {
@@ -1715,7 +1848,7 @@ class Reports extends Secure_Controller
                     to_currency($drow['total']),
                     to_currency($drow['cost']),
                     to_currency($drow['profit']),
-                    ($drow['discount_type'] === PERCENT) ? $drow['discount'] . '%' : to_currency($drow['discount']),
+                    ($drow['discount_type'] == PERCENT) ? $drow['discount'] . '%' : to_currency($drow['discount'])
                 ], $attribute_values);
             }
 
@@ -1734,7 +1867,7 @@ class Reports extends Secure_Controller
             'summary_data'         => $summary_data,
             'details_data'         => $details_data,
             'details_data_rewards' => $details_data_rewards,
-            'overall_summary_data' => $this->detailed_sales->getSummaryData($inputs),
+            'overall_summary_data' => $this->detailed_sales->getSummaryData($inputs)
         ];
         echo view('reports/tabular_details', $data);
     }
@@ -1742,6 +1875,8 @@ class Reports extends Secure_Controller
     /**
      * Returns detailed receivings row for given receiving_id. Used in app/Views/reports/tabular_details.php
      *
+     * @param string $receiving_id
+     * @return void
      * @noinspection PhpUnused
      */
     public function getGet_detailed_receivings_row(string $receiving_id): void
@@ -1769,28 +1904,35 @@ class Reports extends Secure_Controller
                     'class'           => 'modal-dlg print_hide',
                     'data-btn-submit' => lang('Common.submit'),
                     'data-btn-delete' => lang('Common.delete'),
-                    'title'           => lang('Receivings.update'),
-                ],
-            ),
+                    'title'           => lang('Receivings.update')
+                ]
+            )
         ];
 
         echo json_encode([$receiving_id => $summary_data]);
     }
 
+    /**
+     * @param string $start_date
+     * @param string $end_date
+     * @param string $receiving_type
+     * @param string $location_id
+     * @return void
+     */
     public function detailed_receivings(string $start_date, string $end_date, string $receiving_type, string $location_id = 'all'): void
     {
         $this->clearCache();
 
-        $definition_names = $this->attribute->get_definitions_by_flags(Attribute::SHOW_IN_RECEIVINGS);
+        $definition_names = $this->attribute->get_definitions_by_flags(attribute::SHOW_IN_RECEIVINGS);
 
         $inputs = ['start_date' => $start_date, 'end_date' => $end_date, 'receiving_type' => $receiving_type, 'location_id' => $location_id, 'definition_ids' => array_keys($definition_names)];
 
         $this->detailed_receivings->create($inputs);
 
-        $columns            = $this->detailed_receivings->getDataColumns();
+        $columns = $this->detailed_receivings->getDataColumns();
         $columns['details'] = array_merge($columns['details'], $definition_names);
 
-        $headers     = $columns;
+        $headers = $columns;
         $report_data = $this->detailed_receivings->getData($inputs);
 
         $summary_data = [];
@@ -1817,9 +1959,9 @@ class Reports extends Secure_Controller
                         'class'           => 'modal-dlg print_hide',
                         'data-btn-delete' => lang('Common.delete'),
                         'data-btn-submit' => lang('Common.submit'),
-                        'title'           => lang('Receivings.update'),
-                    ],
-                ),
+                        'title'           => lang('Receivings.update')
+                    ]
+                )
             ];
 
             foreach ($report_data['details'][$key] as $drow) {
@@ -1836,7 +1978,7 @@ class Reports extends Secure_Controller
                     $drow['category'],
                     $quantity_purchased,
                     to_currency($drow['total']),
-                    ($drow['discount_type'] === PERCENT) ? $drow['discount'] . '%' : to_currency($drow['discount']),
+                    ($drow['discount_type'] == PERCENT) ? $drow['discount'] . '%' : to_currency($drow['discount'])
                 ], $attribute_values);
             }
         }
@@ -1848,12 +1990,15 @@ class Reports extends Secure_Controller
             'editable'             => 'receivings',
             'summary_data'         => $summary_data,
             'details_data'         => $details_data,
-            'overall_summary_data' => $this->detailed_receivings->getSummaryData($inputs),
+            'overall_summary_data' => $this->detailed_receivings->getSummaryData($inputs)
         ];
 
         echo view('reports/tabular_details', $data);
     }
 
+    /**
+     * @return void
+     */
     public function inventory_low(): void
     {
         $this->clearCache();
@@ -1865,14 +2010,13 @@ class Reports extends Secure_Controller
         $report_data = $inventory_low->getData($inputs);
 
         $tabular_data = [];
-
         foreach ($report_data as $row) {
             $tabular_data[] = [
                 'item_name'     => $row['name'],
                 'item_number'   => $row['item_number'],
                 'quantity'      => to_quantity_decimals($row['quantity']),
                 'reorder_level' => to_quantity_decimals($row['reorder_level']),
-                'location_name' => $row['location_name'],
+                'location_name' => $row['location_name']
             ];
         }
 
@@ -1881,7 +2025,7 @@ class Reports extends Secure_Controller
             'subtitle'     => '',
             'headers'      => $inventory_low->getDataColumns(),
             'data'         => $tabular_data,
-            'summary_data' => $inventory_low->getSummaryData($inputs),
+            'summary_data' => $inventory_low->getSummaryData($inputs)
         ];
 
         echo view('reports/tabular', $data);
@@ -1890,22 +2034,28 @@ class Reports extends Secure_Controller
     /**
      * Gets the inventory summary input view. Used in app/Config/Routes.php
      *
+     * @return void
      * @noinspection PhpUnused
      */
     public function inventory_summary_input(): void
     {
         $this->clearCache();
 
-        $data               = [];
+        $data = [];
         $data['item_count'] = $this->inventory_summary->getItemCountDropdownArray();
 
-        $stock_locations         = $this->stock_location->get_allowed_locations();
-        $stock_locations['all']  = lang('Reports.all');
+        $stock_locations = $this->stock_location->get_allowed_locations();
+        $stock_locations['all'] = lang('Reports.all');
         $data['stock_locations'] = array_reverse($stock_locations, true);
 
         echo view('reports/inventory_summary_input', $data);
     }
 
+    /**
+     * @param string $location_id
+     * @param string $item_count
+     * @return void
+     */
     public function inventory_summary(string $location_id = 'all', string $item_count = 'all'): void
     {
         $this->clearCache();
@@ -1915,7 +2065,6 @@ class Reports extends Secure_Controller
         $report_data = $this->inventory_summary->getData($inputs);
 
         $tabular_data = [];
-
         foreach ($report_data as $row) {
             $tabular_data[] = [
                 'item_name'         => $row['name'],
@@ -1927,7 +2076,7 @@ class Reports extends Secure_Controller
                 'location_name'     => $row['location_name'],
                 'cost_price'        => to_currency($row['cost_price']),
                 'unit_price'        => to_currency($row['unit_price']),
-                'subtotal'          => to_currency($row['sub_total_value']),
+                'subtotal'          => to_currency($row['sub_total_value'])
             ];
         }
 
@@ -1936,7 +2085,7 @@ class Reports extends Secure_Controller
             'subtitle'     => '',
             'headers'      => $this->inventory_summary->getDataColumns(),
             'data'         => $tabular_data,
-            'summary_data' => $this->inventory_summary->getSummaryData($report_data),
+            'summary_data' => $this->inventory_summary->getSummaryData($report_data)
         ];
 
         echo view('reports/tabular', $data);
@@ -1958,6 +2107,9 @@ class Reports extends Secure_Controller
         return $subtitle;
     }
 
+    /**
+     * @return void
+     */
     private function clearCache(): void
     {
         // Make sure the report is not cached by the browser

@@ -10,18 +10,21 @@ use Config\OSPOS;
 use Config\Services;
 
 /**
- * @property Employee employee
+ * @property employee employee
  */
 class Login extends BaseController
 {
     public Model $employee;
 
-    public function index(): RedirectResponse|string
+    /**
+     * @return RedirectResponse|string
+     */
+    public function index(): string|RedirectResponse
     {
         $this->employee = model(Employee::class);
-        if (! $this->employee->is_logged_in()) {
+        if (!$this->employee->is_logged_in()) {
             $migration = new MY_Migration(config('Migrations'));
-            $config    = config(OSPOS::class)->settings;
+            $config = config(OSPOS::class)->settings;
 
             $gcaptcha_enabled = array_key_exists('gcaptcha_enable', $config)
                 ? $config['gcaptcha_enable']
@@ -37,32 +40,31 @@ class Login extends BaseController
                 'latest_version'   => $migration->get_latest_migration(),
                 'gcaptcha_enabled' => $gcaptcha_enabled,
                 'config'           => $config,
-                'validation'       => $validation,
+                'validation'       => $validation
             ];
 
             if ($this->request->getMethod() !== 'POST') {
                 return view('login', $data);
             }
 
-            $rules    = ['username' => 'required|login_check[data]'];
+            $rules = ['username' => 'required|login_check[data]'];
             $messages = [
                 'username' => [
                     'required'    => lang('Login.required_username'),
                     'login_check' => lang('Login.invalid_username_and_password'),
-                ],
+                ]
             ];
 
-            if (! $this->validate($rules, $messages)) {
-                $data['has_errors'] = ! empty($validation->getErrors());
+            if (!$this->validate($rules, $messages)) {
+                $data['has_errors'] = !empty($validation->getErrors());
 
                 return view('login', $data);
             }
 
-            if (! $data['is_latest']) {
+            if (!$data['is_latest']) {
                 set_time_limit(3600);
 
                 $migration->setNamespace('App')->latest();
-
                 return redirect()->to('login');
             }
         }

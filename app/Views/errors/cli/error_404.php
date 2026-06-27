@@ -1,5 +1,4 @@
 <?php
-
 /**
  * @var string $code
  * @var string $message

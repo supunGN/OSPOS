@@ -5,10 +5,17 @@ namespace App\Models\Reports;
 use App\Models\Sale;
 
 /**
- * @property Sale sale
+ *
+ *
+ * @property sale sale
+ *
  */
 class Specific_supplier extends Report
 {
+    /**
+     * @param array $inputs
+     * @return void
+     */
     public function create(array $inputs): void
     {
         // Create our temp tables to work with the data in our report
@@ -17,12 +24,12 @@ class Specific_supplier extends Report
     }
 
     /**
-     * @return list<array>
+     * @return array[]
      */
     public function getDataColumns(): array
     {
         return [
-            ['id' => lang('Reports.sale_id')],
+            ['id'          => lang('Reports.sale_id')],
             ['type_code'   => lang('Reports.code_type')],
             ['sale_time'   => lang('Reports.date'), 'sortable' => false],
             ['name'        => lang('Reports.name')],
@@ -34,10 +41,14 @@ class Specific_supplier extends Report
             ['total'       => lang('Reports.total'), 'sorter' => 'number_sorter'],
             ['cost'        => lang('Reports.cost'), 'sorter' => 'number_sorter'],
             ['profit'      => lang('Reports.profit'), 'sorter' => 'number_sorter'],
-            ['discount'    => lang('Reports.discount')],
+            ['discount'    => lang('Reports.discount')]
         ];
     }
 
+    /**
+     * @param array $inputs
+     * @return array
+     */
     public function getData(array $inputs): array
     {
         $builder = $this->db->table('sales_items_temp');
@@ -112,6 +123,10 @@ class Specific_supplier extends Report
         return $builder->get()->getResultArray();
     }
 
+    /**
+     * @param array $inputs
+     * @return array
+     */
     public function getSummaryData(array $inputs): array
     {
         $builder = $this->db->table('sales_items_temp');

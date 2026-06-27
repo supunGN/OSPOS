@@ -1,3 +1,0 @@
-dist/ merge=ours
-app/Language/**/*.php merge=ours
-text=auto eol=lf

@@ -1,34 +1,34 @@
 <?php
 /**
  * @var object $item_info
- * @var array  $categories
- * @var int    $selected_category
- * @var bool   $standard_item_locked
- * @var bool   $item_kit_disabled
- * @var int    $allow_temp_item
- * @var array  $suppliers
- * @var int    $selected_supplier
- * @var bool   $use_destination_based_tax
- * @var float  $default_tax_1_rate
- * @var float  $default_tax_2_rate
+ * @var array $categories
+ * @var int $selected_category
+ * @var bool $standard_item_locked
+ * @var bool $item_kit_disabled
+ * @var int $allow_temp_item
+ * @var array $suppliers
+ * @var int $selected_supplier
+ * @var bool $use_destination_based_tax
+ * @var float $default_tax_1_rate
+ * @var float $default_tax_2_rate
  * @var string $tax_category
- * @var int    $tax_category_id
- * @var bool   $include_hsn
+ * @var int $tax_category_id
+ * @var bool $include_hsn
  * @var string $hsn_code
- * @var array  $stock_locations
- * @var bool   $logo_exists
+ * @var array $stock_locations
+ * @var bool $logo_exists
  * @var string $image_path
  * @var string $selected_low_sell_item
- * @var int    $selected_low_sell_item_id
+ * @var int $selected_low_sell_item_id
  * @var string $controller_name
- * @var array  $config
+ * @var array $config
  */
 ?>
 
 <div id="required_fields_message"><?= lang('Common.fields_required_message') ?></div>
 <ul id="error_message_box" class="error_message_box"></ul>
 
-<?= form_open("items/save/{$item_info->item_id}", ['id' => 'item_form', 'enctype' => 'multipart/form-data', 'class' => 'form-horizontal']) ?>
+<?= form_open("items/save/$item_info->item_id", ['id' => 'item_form', 'enctype' => 'multipart/form-data', 'class' => 'form-horizontal']) ?>
     <fieldset id="item_basic_info">
 
         <div class="form-group form-group-sm">
@@ -40,7 +40,7 @@
                         'name'  => 'item_number',
                         'id'    => 'item_number',
                         'class' => 'form-control input-sm',
-                        'value' => $item_info->item_number,
+                        'value' => $item_info->item_number
                     ]) ?>
                 </div>
             </div>
@@ -53,40 +53,38 @@
                     'name'  => 'name',
                     'id'    => 'name',
                     'class' => 'form-control input-sm',
-                    'value' => $item_info->name,
+                    'value' => $item_info->name
                 ]) ?>
             </div>
         </div>
 
+        <!-- Original Category Field (Hidden for backward compatibility) -->
+        <input type="hidden" name="category" id="category" value="<?= esc($item_info->category ?? '') ?>" />
+
+        <!-- New Custom Category Field -->
         <div class="form-group form-group-sm">
-            <?= form_label(lang('Items.category'), 'category', ['class' => 'required control-label col-xs-3']) ?>
+            <?= form_label('Category', 'category_id', ['class' => 'required control-label col-xs-3']) ?>
             <div class="col-xs-8">
-                <div class="input-group">
-                    <span class="input-group-addon input-sm"><span class="glyphicon glyphicon-tag"></span></span>
-                    <?php
-                    if ($config['category_dropdown']) {
-                        echo form_dropdown('category', $categories, $selected_category, ['class' => 'form-control']);
-                    } else {
-                        echo form_input([
-                            'name'  => 'category',
-                            'id'    => 'category',
-                            'class' => 'form-control input-sm',
-                            'value' => $item_info->category,
-                        ]);
-                    }
-?>
-                </div>
+                <?= form_dropdown('category_id', $custom_categories, $item_info->category_id, ['id' => 'category_id', 'class' => 'form-control', 'required' => 'required']) ?>
+            </div>
+        </div>
+
+        <!-- New Custom Subcategory Field -->
+        <div class="form-group form-group-sm">
+            <?= form_label('Subcategory', 'subcategory_id', ['class' => 'required control-label col-xs-3']) ?>
+            <div class="col-xs-8">
+                <?= form_dropdown('subcategory_id', $custom_subcategories, $item_info->subcategory_id, ['id' => 'subcategory_id', 'class' => 'form-control', 'required' => 'required']) ?>
             </div>
         </div>
 
         <div id="attributes">
             <script type="text/javascript">
-                $('#attributes').load('<?= "items/attributes/{$item_info->item_id}" ?>');
+                $('#attributes').load('<?= "items/attributes/$item_info->item_id" ?>');
             </script>
         </div>
 
         <div class="form-group form-group-sm">
-            <?= form_label(lang('Items.stock_type'), 'stock_type', ! empty($basic_version) ? ['class' => 'required control-label col-xs-3'] : ['class' => 'control-label col-xs-3']) ?>
+            <?= form_label(lang('Items.stock_type'), 'stock_type', !empty($basic_version) ? ['class' => 'required control-label col-xs-3'] : ['class' => 'control-label col-xs-3']) ?>
             <div class="col-xs-8">
                 <label class="radio-inline">
                     <?= form_radio([
@@ -94,7 +92,7 @@
                         'type'    => 'radio',
                         'id'      => 'stock_type',
                         'value'   => 0,
-                        'checked' => $item_info->stock_type === HAS_STOCK,
+                        'checked' => $item_info->stock_type == HAS_STOCK
                     ]) ?> <?= lang('Items.stock') ?>
                 </label>
                 <label class="radio-inline">
@@ -103,64 +101,64 @@
                         'type'    => 'radio',
                         'id'      => 'stock_type',
                         'value'   => 1,
-                        'checked' => $item_info->stock_type === HAS_NO_STOCK,
+                        'checked' => $item_info->stock_type == HAS_NO_STOCK
                     ]) ?><?= lang('Items.nonstock') ?>
                 </label>
             </div>
         </div>
 
         <div class="form-group form-group-sm">
-            <?= form_label(lang('Items.type'), 'item_type', ! empty($basic_version) ? ['class' => 'required control-label col-xs-3'] : ['class' => 'control-label col-xs-3']) ?>
+            <?= form_label(lang('Items.type'), 'item_type', !empty($basic_version) ? ['class' => 'required control-label col-xs-3'] : ['class' => 'control-label col-xs-3']) ?>
             <div class="col-xs-8">
                 <label class="radio-inline">
                     <?php
-$radio_button = [
-    'name'    => 'item_type',
-    'type'    => 'radio',
-    'id'      => 'item_type',
-    'value'   => 0,
-    'checked' => $item_info->item_type === ITEM,
-];
+                    $radio_button = [
+                        'name'    => 'item_type',
+                        'type'    => 'radio',
+                        'id'      => 'item_type',
+                        'value'   => 0,
+                        'checked' => $item_info->item_type == ITEM
+                    ];
 
-if ($standard_item_locked) {
-    $radio_button['disabled'] = true;
-}
-echo form_radio($radio_button) ?> <?= lang('Items.standard') ?>
+                    if ($standard_item_locked) {
+                        $radio_button['disabled'] = true;
+                    }
+                    echo form_radio($radio_button) ?> <?= lang('Items.standard') ?>
                 </label>
                 <label class="radio-inline">
                     <?php
-$radio_button = [
-    'name'    => 'item_type',
-    'type'    => 'radio',
-    'id'      => 'item_type',
-    'value'   => 1,
-    'checked' => $item_info->item_type === ITEM_KIT,
-];
+                    $radio_button = [
+                        'name'    => 'item_type',
+                        'type'    => 'radio',
+                        'id'      => 'item_type',
+                        'value'   => 1,
+                        'checked' => $item_info->item_type == ITEM_KIT
+                    ];
 
-if ($item_kit_disabled) {
-    $radio_button['disabled'] = true;
-}
-echo form_radio($radio_button) ?> <?= lang('Items.kit') ?>
+                    if ($item_kit_disabled) {
+                        $radio_button['disabled'] = true;
+                    }
+                    echo form_radio($radio_button) ?> <?= lang('Items.kit') ?>
                 </label>
-                <?php if ($config['derive_sale_quantity'] === '1') { ?>
+                <?php if ($config['derive_sale_quantity'] == '1') { ?>
                     <label class="radio-inline">
                         <?= form_radio([
                             'name'    => 'item_type',
                             'type'    => 'radio',
                             'id'      => 'item_type',
                             'value'   => 2,
-                            'checked' => $item_info->item_type === ITEM_AMOUNT_ENTRY,
+                            'checked' => $item_info->item_type == ITEM_AMOUNT_ENTRY
                         ]) ?><?= lang('Items.amount_entry') ?>
                     </label>
                 <?php } ?>
-                <?php if ($allow_temp_item === 1) { ?>
+                <?php if ($allow_temp_item == 1) { ?>
                     <label class="radio-inline">
                         <?= form_radio([
                             'name'    => 'item_type',
                             'type'    => 'radio',
                             'id'      => 'item_type',
                             'value'   => 3,
-                            'checked' => $item_info->item_type === ITEM_TEMP,
+                            'checked' => $item_info->item_type == ITEM_TEMP
                         ]) ?> <?= lang('Items.temp') ?>
                     </label>
                 <?php } ?>
@@ -178,7 +176,7 @@ echo form_radio($radio_button) ?> <?= lang('Items.kit') ?>
             <?= form_label(lang('Items.cost_price'), 'cost_price', ['class' => 'required control-label col-xs-3']) ?>
             <div class="col-xs-4">
                 <div class="input-group input-group-sm">
-                    <?php if (! is_right_side_currency_symbol()): ?>
+                    <?php if (!is_right_side_currency_symbol()): ?>
                         <span class="input-group-addon input-sm"><b><?= esc($config['currency_symbol']) ?></b></span>
                     <?php endif; ?>
                     <?= form_input([
@@ -186,7 +184,7 @@ echo form_radio($radio_button) ?> <?= lang('Items.kit') ?>
                         'id'      => 'cost_price',
                         'class'   => 'form-control input-sm',
                         'onClick' => 'this.select();',
-                        'value'   => to_currency_no_money($item_info->cost_price),
+                        'value'   => to_currency_no_money($item_info->cost_price)
                     ]) ?>
                     <?php if (is_right_side_currency_symbol()): ?>
                         <span class="input-group-addon input-sm"><b><?= esc($config['currency_symbol']) ?></b></span>
@@ -199,7 +197,7 @@ echo form_radio($radio_button) ?> <?= lang('Items.kit') ?>
             <?= form_label(lang('Items.unit_price'), 'unit_price', ['class' => 'required control-label col-xs-3']) ?>
             <div class="col-xs-4">
                 <div class="input-group input-group-sm">
-                    <?php if (! is_right_side_currency_symbol()): ?>
+                    <?php if (!is_right_side_currency_symbol()): ?>
                         <span class="input-group-addon input-sm"><b><?= esc($config['currency_symbol']) ?></b></span>
                     <?php endif; ?>
                     <?= form_input([
@@ -207,7 +205,7 @@ echo form_radio($radio_button) ?> <?= lang('Items.kit') ?>
                         'id'      => 'unit_price',
                         'class'   => 'form-control input-sm',
                         'onClick' => 'this.select();',
-                        'value'   => to_currency_no_money($item_info->unit_price),
+                        'value'   => to_currency_no_money($item_info->unit_price)
                     ]) ?>
                     <?php if (is_right_side_currency_symbol()): ?>
                         <span class="input-group-addon input-sm"><b><?= esc($config['currency_symbol']) ?></b></span>
@@ -216,7 +214,7 @@ echo form_radio($radio_button) ?> <?= lang('Items.kit') ?>
             </div>
         </div>
 
-        <?php if (! $use_destination_based_tax) { ?>
+        <?php if (!$use_destination_based_tax) { ?>
             <div class="form-group form-group-sm">
                 <?= form_label(lang('Items.tax_1'), 'tax_percent_1', ['class' => 'control-label col-xs-3']) ?>
                 <div class="col-xs-4">
@@ -224,7 +222,7 @@ echo form_radio($radio_button) ?> <?= lang('Items.kit') ?>
                         'name'  => 'tax_names[]',
                         'id'    => 'tax_name_1',
                         'class' => 'form-control input-sm',
-                        'value' => $item_tax_info[0]['name'] ?? $config['default_tax_1_name'],
+                        'value' => $item_tax_info[0]['name'] ?? $config['default_tax_1_name']
                     ]) ?>
                 </div>
                 <div class="col-xs-4">
@@ -233,7 +231,7 @@ echo form_radio($radio_button) ?> <?= lang('Items.kit') ?>
                             'name'  => 'tax_percents[]',
                             'id'    => 'tax_percent_name_1',
                             'class' => 'form-control input-sm',
-                            'value' => isset($item_tax_info[0]['percent']) ? to_tax_decimals($item_tax_info[0]['percent']) : to_tax_decimals($default_tax_1_rate),
+                            'value' => isset($item_tax_info[0]['percent']) ? to_tax_decimals($item_tax_info[0]['percent']) : to_tax_decimals($default_tax_1_rate)
                         ]) ?>
                         <span class="input-group-addon input-sm"><b>%</b></span>
                     </div>
@@ -247,7 +245,7 @@ echo form_radio($radio_button) ?> <?= lang('Items.kit') ?>
                         'name'  => 'tax_names[]',
                         'id'    => 'tax_name_2',
                         'class' => 'form-control input-sm',
-                        'value' => $item_tax_info[1]['name'] ?? $config['default_tax_2_name'],
+                        'value' => $item_tax_info[1]['name'] ?? $config['default_tax_2_name']
                     ]) ?>
                 </div>
                 <div class="col-xs-4">
@@ -256,7 +254,7 @@ echo form_radio($radio_button) ?> <?= lang('Items.kit') ?>
                             'name'  => 'tax_percents[]',
                             'class' => 'form-control input-sm',
                             'id'    => 'tax_percent_name_2',
-                            'value' => isset($item_tax_info[1]['percent']) ? to_tax_decimals($item_tax_info[1]['percent']) : to_tax_decimals($default_tax_2_rate),
+                            'value' => isset($item_tax_info[1]['percent']) ? to_tax_decimals($item_tax_info[1]['percent']) : to_tax_decimals($default_tax_2_rate)
                         ]) ?>
                         <span class="input-group-addon input-sm"><b>%</b></span>
                     </div>
@@ -274,7 +272,7 @@ echo form_radio($radio_button) ?> <?= lang('Items.kit') ?>
                             'id'    => 'tax_category',
                             'class' => 'form-control input-sm',
                             'size'  => '50',
-                            'value' => $tax_category,
+                            'value' => $tax_category
                         ]) ?>
                         <?= form_hidden('tax_category_id', $tax_category_id) ?>
                     </div>
@@ -291,7 +289,7 @@ echo form_radio($radio_button) ?> <?= lang('Items.kit') ?>
                             'name'  => 'hsn_code',
                             'id'    => 'hsn_code',
                             'class' => 'form-control input-sm',
-                            'value' => $hsn_code,
+                            'value' => $hsn_code
                         ]) ?>
                     </div>
                 </div>
@@ -300,14 +298,14 @@ echo form_radio($radio_button) ?> <?= lang('Items.kit') ?>
 
         <?php foreach ($stock_locations as $key => $location_detail) { ?>
             <div class="form-group form-group-sm">
-                <?= form_label(lang('Items.quantity') . ' ' . $location_detail['location_name'], "quantity_{$key}", ['class' => 'required control-label col-xs-3']) ?>
+                <?= form_label(lang('Items.quantity') . ' ' . $location_detail['location_name'], "quantity_$key", ['class' => 'required control-label col-xs-3']) ?>
                 <div class="col-xs-4">
                     <?= form_input([
-                        'name'    => "quantity_{$key}",
-                        'id'      => "quantity_{$key}",
+                        'name'    => "quantity_$key",
+                        'id'      => "quantity_$key",
                         'class'   => 'required quantity form-control',
                         'onClick' => 'this.select();',
-                        'value'   => isset($item_info->item_id) ? to_quantity_decimals($location_detail['quantity']) : to_quantity_decimals(0),
+                        'value'   => isset($item_info->item_id) ? to_quantity_decimals($location_detail['quantity']) : to_quantity_decimals(0)
                     ]) ?>
                 </div>
             </div>
@@ -321,7 +319,7 @@ echo form_radio($radio_button) ?> <?= lang('Items.kit') ?>
                     'id'      => 'receiving_quantity',
                     'class'   => 'required form-control input-sm',
                     'onClick' => 'this.select();',
-                    'value'   => isset($item_info->item_id) ? to_quantity_decimals($item_info->receiving_quantity) : to_quantity_decimals(0),
+                    'value'   => isset($item_info->item_id) ? to_quantity_decimals($item_info->receiving_quantity) : to_quantity_decimals(0)
                 ]) ?>
             </div>
         </div>
@@ -334,7 +332,7 @@ echo form_radio($radio_button) ?> <?= lang('Items.kit') ?>
                     'id'      => 'reorder_level',
                     'class'   => 'form-control input-sm',
                     'onClick' => 'this.select();',
-                    'value'   => isset($item_info->item_id) ? to_quantity_decimals($item_info->reorder_level) : to_quantity_decimals(0),
+                    'value'   => isset($item_info->item_id) ? to_quantity_decimals($item_info->reorder_level) : to_quantity_decimals(0)
                 ]) ?>
             </div>
         </div>
@@ -346,7 +344,7 @@ echo form_radio($radio_button) ?> <?= lang('Items.kit') ?>
                     'name'  => 'description',
                     'id'    => 'description',
                     'class' => 'form-control input-sm',
-                    'value' => $item_info->description,
+                    'value' => $item_info->description
                 ]) ?>
             </div>
         </div>
@@ -380,7 +378,7 @@ echo form_radio($radio_button) ?> <?= lang('Items.kit') ?>
                     'name'    => 'allow_alt_description',
                     'id'      => 'allow_alt_description',
                     'value'   => 1,
-                    'checked' => $item_info->allow_alt_description === 1,
+                    'checked' => $item_info->allow_alt_description == 1
                 ]) ?>
             </div>
         </div>
@@ -392,12 +390,12 @@ echo form_radio($radio_button) ?> <?= lang('Items.kit') ?>
                     'name'    => 'is_serialized',
                     'id'      => 'is_serialized',
                     'value'   => 1,
-                    'checked' => $item_info->is_serialized === 1,
+                    'checked' => $item_info->is_serialized == 1
                 ]) ?>
             </div>
         </div>
 
-        <?php if ($config['multi_pack_enabled'] === '1') { ?>
+        <?php if ($config['multi_pack_enabled'] == '1') { ?>
             <div class="form-group form-group-sm">
                 <?= form_label(lang('Items.qty_per_pack'), 'qty_per_pack', ['class' => 'control-label col-xs-3']) ?>
                 <div class="col-xs-4">
@@ -405,7 +403,7 @@ echo form_radio($radio_button) ?> <?= lang('Items.kit') ?>
                         'name'  => 'qty_per_pack',
                         'id'    => 'qty_per_pack',
                         'class' => 'form-control input-sm',
-                        'value' => isset($item_info->item_id) ? to_quantity_decimals($item_info->qty_per_pack) : to_quantity_decimals(0),
+                        'value' => isset($item_info->item_id) ? to_quantity_decimals($item_info->qty_per_pack) : to_quantity_decimals(0)
                     ]) ?>
                 </div>
             </div>
@@ -416,7 +414,7 @@ echo form_radio($radio_button) ?> <?= lang('Items.kit') ?>
                         'name'  => 'pack_name',
                         'id'    => 'pack_name',
                         'class' => 'form-control input-sm',
-                        'value' => $item_info->pack_name,
+                        'value' => $item_info->pack_name
                     ]) ?>
                 </div>
             </div>
@@ -428,7 +426,7 @@ echo form_radio($radio_button) ?> <?= lang('Items.kit') ?>
                             'name'  => 'low_sell_item_name',
                             'id'    => 'low_sell_item_name',
                             'class' => 'form-control input-sm',
-                            'value' => $selected_low_sell_item,
+                            'value' => $selected_low_sell_item
                         ]) ?>
                         <?= form_hidden('low_sell_item_id', $selected_low_sell_item_id) ?>
                     </div>
@@ -443,7 +441,7 @@ echo form_radio($radio_button) ?> <?= lang('Items.kit') ?>
                     'name'    => 'is_deleted',
                     'id'      => 'is_deleted',
                     'value'   => 1,
-                    'checked' => $item_info->deleted === 1,
+                    'checked' => $item_info->deleted == 1
                 ]) ?>
             </div>
         </div>
@@ -499,16 +497,32 @@ echo form_radio($radio_button) ?> <?= lang('Items.kit') ?>
             focus: fill_low_sell_value
         });
 
-        $('#category').autocomplete({
-            source: "<?= 'items/suggestCategory' ?>",
-            delay: 10,
-            appendTo: '.modal-content'
+        $('#category_id').change(function() {
+            var categoryId = $(this).val();
+            var categoryText = $("#category_id option:selected").text();
+            
+            // Update hidden category text
+            if (categoryId) {
+                $('#category').val(categoryText);
+            } else {
+                $('#category').val('');
+            }
+            
+            // Fetch subcategories
+            $('#subcategory_id').empty().append('<option value="">' + "<?= lang('Items.none') ?>" + '</option>');
+            if (categoryId) {
+                $.getJSON("<?= 'items/subcategories/' ?>" + categoryId, function(data) {
+                    $.each(data, function(index, item) {
+                        $('#subcategory_id').append('<option value="' + item.id + '">' + item.name + '</option>');
+                    });
+                });
+            }
         });
 
         $('a.fileinput-exists').click(function() {
             $.ajax({
                 type: 'GET',
-                url: '<?= "{$controller_name}/removeLogo/{$item_info->item_id}" ?>',
+                url: '<?= "$controller_name/removeLogo/$item_info->item_id" ?>',
                 dataType: 'json'
             })
         });
@@ -549,7 +563,7 @@ echo form_radio($radio_button) ?> <?= lang('Items.kit') ?>
                     item_number: {
                         required: false,
                         remote: {
-                            url: "<?= esc("{$controller_name}/checkItemNumber") ?>",
+                            url: "<?= esc("$controller_name/checkItemNumber") ?>",
                             type: 'POST',
                             data: {
                                 'item_id': "<?= $item_info->item_id ?>"
@@ -559,29 +573,29 @@ echo form_radio($radio_button) ?> <?= lang('Items.kit') ?>
                     },
                     cost_price: {
                         required: true,
-                        remote: "<?= esc("{$controller_name}/checkNumeric") ?>"
+                        remote: "<?= esc("$controller_name/checkNumeric") ?>"
                     },
                     unit_price: {
                         required: true,
-                        remote: "<?= esc("{$controller_name}/checkNumeric") ?>"
+                        remote: "<?= esc("$controller_name/checkNumeric") ?>"
                     },
                     <?php foreach ($stock_locations as $key => $location_detail) { ?>
                         <?= 'quantity_' . $key ?>: {
                             required: true,
-                            remote: "<?= esc("{$controller_name}/checkNumeric") ?>"
+                            remote: "<?= esc("$controller_name/checkNumeric") ?>"
                         },
                     <?php } ?>
                     receiving_quantity: {
                         required: true,
-                        remote: "<?= esc("{$controller_name}/checkNumeric") ?>"
+                        remote: "<?= esc("$controller_name/checkNumeric") ?>"
                     },
                     reorder_level: {
                         required: true,
-                        remote: "<?= esc("{$controller_name}/checkNumeric") ?>"
+                        remote: "<?= esc("$controller_name/checkNumeric") ?>"
                     },
                     tax_percent: {
                         required: false,
-                        remote: "<?= esc("{$controller_name}/checkNumeric") ?>"
+                        remote: "<?= esc("$controller_name/checkNumeric") ?>"
                     }
                 },
 
@@ -598,7 +612,7 @@ echo form_radio($radio_button) ?> <?= lang('Items.kit') ?>
                         number: "<?= lang('Items.unit_price_number') ?>"
                     },
                     <?php foreach ($stock_locations as $key => $location_detail) { ?>
-                        <?= esc("quantity_{$key}", 'js') ?>: {
+                        <?= esc("quantity_$key", 'js') ?>: {
                             required: "<?= lang('Items.quantity_required') ?>",
                             number: "<?= lang('Items.quantity_number') ?>"
                         },

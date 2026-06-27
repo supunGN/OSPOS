@@ -5,7 +5,7 @@ namespace App\Models\Reports;
 class Summary_categories extends Summary_report
 {
     /**
-     * @return list<array>
+     * @return array[]
      */
     protected function _get_data_columns(): array    // TODO: Hungarian notation
     {
@@ -16,10 +16,15 @@ class Summary_categories extends Summary_report
             ['tax'      => lang('Reports.tax'), 'sorter' => 'number_sorter'],
             ['total'    => lang('Reports.total'), 'sorter' => 'number_sorter'],
             ['cost'     => lang('Reports.cost'), 'sorter' => 'number_sorter'],
-            ['profit'   => lang('Reports.profit'), 'sorter' => 'number_sorter'],
+            ['profit'   => lang('Reports.profit'), 'sorter' => 'number_sorter']
         ];
     }
 
+    /**
+     * @param array $inputs
+     * @param $builder
+     * @return void
+     */
     protected function _select(array $inputs, &$builder): void    // TODO: Hungarian notation
     {
         parent::_select($inputs, $builder);    // TODO: hungarian notation
@@ -30,6 +35,10 @@ class Summary_categories extends Summary_report
         ');
     }
 
+    /**
+     * @param $builder
+     * @return void
+     */
     protected function _from(&$builder): void    // TODO: hungarian notation
     {
         parent::_from($builder);
@@ -37,6 +46,10 @@ class Summary_categories extends Summary_report
         $builder->join('items AS items', 'sales_items.item_id = items.item_id', 'inner');
     }
 
+    /**
+     * @param $builder
+     * @return void
+     */
     protected function _group_order(&$builder): void    // TODO: hungarian notation
     {
         $builder->groupBy('category');

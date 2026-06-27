@@ -7,7 +7,7 @@ use ReflectionException;
 
 /**
  * Token_quote_sequence class
- */
+ **/
 class Token_quote_sequence extends Token
 {
     private Appconfig $appconfig;
@@ -15,9 +15,12 @@ class Token_quote_sequence extends Token
     public function __construct()
     {
         parent::__construct();
-        $this->appconfig = model(Appconfig::class);
+        $this->appconfig = model(AppConfig::class);
     }
 
+    /**
+     * @return string
+     */
     public function token_id(): string
     {
         return 'QSEQ';

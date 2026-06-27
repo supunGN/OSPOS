@@ -5,21 +5,26 @@ namespace App\Models\Reports;
 class Summary_suppliers extends Summary_report
 {
     /**
-     * @return list<array>
+     * @return array[]
      */
     protected function _get_data_columns(): array    // TODO: hungarian notation
     {
         return [
             ['supplier_name' => lang('Reports.supplier')],
-            ['quantity' => lang('Reports.quantity')],
-            ['subtotal' => lang('Reports.subtotal'), 'sorter' => 'number_sorter'],
-            ['tax'      => lang('Reports.tax'), 'sorter' => 'number_sorter'],
-            ['total'    => lang('Reports.total'), 'sorter' => 'number_sorter'],
-            ['cost'     => lang('Reports.cost'), 'sorter' => 'number_sorter'],
-            ['profit'   => lang('Reports.profit'), 'sorter' => 'number_sorter'],
+            ['quantity'      => lang('Reports.quantity')],
+            ['subtotal'      => lang('Reports.subtotal'), 'sorter' => 'number_sorter'],
+            ['tax'           => lang('Reports.tax'), 'sorter' => 'number_sorter'],
+            ['total'         => lang('Reports.total'), 'sorter' => 'number_sorter'],
+            ['cost'          => lang('Reports.cost'), 'sorter' => 'number_sorter'],
+            ['profit'        => lang('Reports.profit'), 'sorter' => 'number_sorter']
         ];
     }
 
+    /**
+     * @param array $inputs
+     * @param object $builder
+     * @return void
+     */
     protected function _select(array $inputs, object &$builder): void    // TODO: hungarian notation
     {
         parent::_select($inputs, $builder);    // TODO: hungarian notation
@@ -30,6 +35,10 @@ class Summary_suppliers extends Summary_report
         ');
     }
 
+    /**
+     * @param object $builder
+     * @return void
+     */
     protected function _from(object &$builder): void    // TODO: hungarian notation
     {
         parent::_from($builder);    // TODO: hungarian notation
@@ -39,6 +48,10 @@ class Summary_suppliers extends Summary_report
         $builder->join('people AS supplier_p', 'items.supplier_id = supplier_p.person_id');
     }
 
+    /**
+     * @param object $builder
+     * @return void
+     */
     protected function _group_order(object &$builder): void    // TODO: hungarian notation
     {
         $builder->groupBy('items.supplier_id');
