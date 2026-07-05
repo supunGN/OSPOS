@@ -8,7 +8,7 @@ use Config\Database;
 /**
  * Controller for the TileVista ↔ OSPOS integration API.
  * Exposes live inventory metrics for the Weerawila Showroom outlet location (location_id = 1).
- * This controller is read-only. Stock mutations must be performed through the OSPOS Cashier UI.
+ * This controller is read-only. Stock mutations must be performed through the POS Cashier UI.
  */
 class TilevistaApi extends BaseController
 {
@@ -42,6 +42,32 @@ class TilevistaApi extends BaseController
 
         $db = Database::connect();
 
+        // 1. Fetch attributes for all products
+        $attrQuery = $db->query('
+            SELECT 
+                al.item_id,
+                ad.definition_name,
+                av.attribute_value
+            FROM ospos_attribute_links al
+            JOIN ospos_attribute_definitions ad ON al.definition_id = ad.definition_id
+            JOIN ospos_attribute_values av ON al.attribute_id = av.attribute_id
+            WHERE al.item_id IS NOT NULL AND ad.deleted = 0
+        ');
+        $attrRows = $attrQuery->getResultArray();
+
+        // Group attributes by item_id
+        $itemAttributes = [];
+        foreach ($attrRows as $attrRow) {
+            $itemId = (int) $attrRow['item_id'];
+            $defName = $attrRow['definition_name'];
+            $val = $attrRow['attribute_value'];
+            if (!isset($itemAttributes[$itemId])) {
+                $itemAttributes[$itemId] = [];
+            }
+            $itemAttributes[$itemId][$defName] = $val;
+        }
+
+        // 2. Fetch main product list
         $query = $db->query('
             SELECT
                 i.item_id,
@@ -59,9 +85,9 @@ class TilevistaApi extends BaseController
             WHERE i.deleted = 0
             ORDER BY i.item_id ASC
         ');
-
         $rows = $query->getResultArray();
 
+        // 3. Map attributes into item payload
         $items = array_map(static fn ($row) => [
             'item_id'     => (int) $row['item_id'],
             'name'        => $row['name'],
@@ -72,6 +98,7 @@ class TilevistaApi extends BaseController
             'description' => $row['description'],
             'price'       => (float) $row['unit_price'],
             'quantity'    => (float) $row['quantity'],
+            'attributes'  => $itemAttributes[(int) $row['item_id']] ?? (object) [],
         ], $rows);
 
         return $this->response->setJSON($items);
@@ -88,35 +115,35 @@ class TilevistaApi extends BaseController
         }
 
         $db = Database::connect();
-        
+
         // Fetch categories
         $queryCat = $db->query('SELECT id, name FROM ospos_categories WHERE deleted = 0 ORDER BY id');
         $cats = $queryCat->getResultArray();
-        
+
         // Fetch subcategories
         $querySub = $db->query('SELECT id, category_id, name FROM ospos_subcategories WHERE deleted = 0 ORDER BY category_id, id');
         $subs = $querySub->getResultArray();
-        
+
         $categories = [];
-        
+
         foreach ($cats as $cat) {
             $categories[$cat['id']] = [
-                'id' => (int)$cat['id'],
+                'id' => (int) $cat['id'],
                 'name' => $cat['name'],
                 'subcategories' => []
             ];
         }
-        
+
         foreach ($subs as $sub) {
             if (isset($categories[$sub['category_id']])) {
                 $categories[$sub['category_id']]['subcategories'][] = [
-                    'id' => (int)$sub['id'],
-                    'category_id' => (int)$sub['category_id'],
+                    'id' => (int) $sub['id'],
+                    'category_id' => (int) $sub['category_id'],
                     'name' => $sub['name']
                 ];
             }
         }
-        
+
         return $this->response->setJSON(array_values($categories));
     }
 
@@ -156,7 +183,7 @@ class TilevistaApi extends BaseController
         }
 
         return $this->response->setJSON([
-            'item_id'            => (int) $result->item_id,
+            'item_id' => (int) $result->item_id,
             'quantity_available' => (float) $result->quantity,
         ]);
     }
