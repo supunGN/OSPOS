@@ -44,3 +44,7 @@ $routes->add('reports/specific_suppliers', 'Reports::specific_supplier_input');
 $routes->get('api/tilevista/items', 'TilevistaApi::getItems');
 $routes->get('api/tilevista/categories', 'TilevistaApi::getCategories');
 $routes->get('api/tilevista/stock/(:num)', 'TilevistaApi::getStock/$1');
+$routes->post('api/tilevista/quote', 'TilevistaApi::postQuote');
+$routes->post('api/tilevista/quote/cancel', 'TilevistaApi::cancelQuote');
+
+
