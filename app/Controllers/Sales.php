@@ -1550,10 +1550,40 @@ class Sales extends Secure_Controller
      */
     public function postUnsuspend(): void
     {
-        $sale_id = $this->request->getPost('suspended_sale_id', FILTER_SANITIZE_NUMBER_INT);
+        $sale_id = (int) $this->request->getPost('suspended_sale_id', FILTER_SANITIZE_NUMBER_INT);
         $this->sale_lib->clear_all();
 
         if ($sale_id > 0) {
+            $db = \Config\Database::connect();
+
+            // Check if this sale is a TileVista quote
+            $tvQuote = $db->table('tilevista_quotes')
+                ->where('ospos_sale_id', $sale_id)
+                ->get()
+                ->getRow();
+
+            if ($tvQuote) {
+                // 1. Check if sale status is CANCELED (2)
+                $saleRow = $db->table('sales')
+                    ->where('sale_id', $sale_id)
+                    ->get()
+                    ->getRow();
+
+                if ($saleRow && (int) $saleRow->sale_status === CANCELED) {
+                    $this->_reload(['error' => 'Quote has been cancelled and cannot be unsuspended.']);
+                    return;
+                }
+
+                // 2. Check if quote has expired
+                if (!empty($tvQuote->expires_at)) {
+                    $now = date('Y-m-d H:i:s');
+                    if ($now > $tvQuote->expires_at) {
+                        $this->_reload(['error' => 'Quote has expired (5-day TTL exceeded).']);
+                        return;
+                    }
+                }
+            }
+
             $this->sale_lib->copy_entire_sale($sale_id);
         }
 
@@ -1562,6 +1592,7 @@ class Sales extends Secure_Controller
 
         $this->_reload();    // TODO: Hungarian notation
     }
+
 
     /**
      * Show Keyboard shortcut modal. Used in app/Views/sales/register.php
