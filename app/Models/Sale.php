@@ -524,10 +524,6 @@ class Sale extends Model
 
         $item_quantity = model(Item_quantity::class);
 
-        if ($sale_id != NEW_ENTRY) {
-            $this->clear_suspended_sale_detail($sale_id);
-        }
-
         if (count($items) == 0) {    // TODO: ===
             return -1;    // TODO: Replace -1 with a constant
         }
@@ -555,8 +551,24 @@ class Sale extends Model
         } else {
             $builder = $this->db->table('sales');
             $builder->where('sale_id', $sale_id);
+
+            // Atomic state protection: When completing an existing suspended sale/quote,
+            // ensure the row's current state in DB is still SUSPENDED.
+            if ($sale_status == COMPLETED) {
+                $builder->where('sale_status', SUSPENDED);
+            }
+
             $builder->update($sales_data);
+
+            if ($sale_status == COMPLETED && $this->db->affectedRows() === 0) {
+                // Sale was already completed by another register or cancelled. Abort transaction.
+                $this->db->transRollback();
+                return NEW_ENTRY;
+            }
+
+            $this->clear_suspended_sale_detail($sale_id);
         }
+
 
         $total_amount = 0;
         $total_amount_used = 0;
@@ -669,8 +681,30 @@ class Sale extends Model
 
         $this->db->transComplete();
 
-        return $this->db->transStatus() ? $sale_id : -1;
+        $transSuccess = $this->db->transStatus();
+
+        // Step 5: Post-Commit Direct Webhook Notification to TileVista
+        // MUST ONLY run after the database transaction has successfully COMMITTED.
+        if ($transSuccess && $sale_status == COMPLETED) {
+            try {
+                $tvQuoteRow = $this->db->table('tilevista_quotes')
+                    ->where('ospos_sale_id', $sale_id)
+                    ->get()
+                    ->getRow();
+
+                if ($tvQuoteRow) {
+                    $orderReference = $tvQuoteRow->order_reference;
+                    $webhookService = new \App\Libraries\TilevistaWebhookService();
+                    $webhookService->sendCompletionWebhook($orderReference, (int) $sale_id);
+                }
+            } catch (\Throwable $e) {
+                log_message('error', 'Exception during post-commit TileVista webhook notification for Sale #' . $sale_id . ': ' . $e->getMessage());
+            }
+        }
+
+        return $transSuccess ? $sale_id : -1;
     }
+
 
     /**
      * Saves sale tax

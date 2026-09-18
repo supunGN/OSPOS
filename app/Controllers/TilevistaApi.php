@@ -2,13 +2,16 @@
 
 namespace App\Controllers;
 
+use App\Models\Customer;
+use App\Models\Item;
 use App\Models\Item_quantity;
+use App\Models\Sale;
+use App\Models\Stock_location;
 use Config\Database;
 
 /**
  * Controller for the TileVista ↔ OSPOS integration API.
- * Exposes live inventory metrics for the Weerawila Showroom outlet location (location_id = 1).
- * This controller is read-only. Stock mutations must be performed through the POS Cashier UI.
+ * Exposes live inventory & sales metrics and handles quote synchronization with TileVista.
  */
 class TilevistaApi extends BaseController
 {
@@ -185,7 +188,7 @@ class TilevistaApi extends BaseController
         }
 
         return $this->response->setJSON([
-            'item_id'            => (int) $result->item_id,
+            'item_id' => (int) $result->item_id,
             'quantity_available' => (float) $result->quantity,
         ]);
     }
@@ -395,4 +398,456 @@ class TilevistaApi extends BaseController
             ],
         ]);
     }
+
+    /**
+     * POST /api/tilevista/quote
+     * Creates a suspended quote in OSPOS from a TileVista quotation payload.
+     * Idempotent based on `order_reference`.
+     */
+    public function postQuote()
+    {
+        if ($authError = $this->checkAuth()) {
+            return $authError;
+        }
+
+        helper('text');
+
+        $json = $this->request->getJSON(true);
+        if (empty($json) || !is_array($json)) {
+            return $this->response
+                ->setStatusCode(400)
+                ->setJSON(['success' => false, 'error' => 'Invalid or missing JSON payload']);
+        }
+
+        // 1. Validate reference
+        if (empty($json['reference']) || !is_string($json['reference'])) {
+            return $this->response
+                ->setStatusCode(400)
+                ->setJSON(['success' => false, 'error' => 'Field "reference" is required and must be a string']);
+        }
+        $reference = trim($json['reference']);
+
+        // 2. Validate location_id
+        if (!isset($json['location_id']) || !is_numeric($json['location_id'])) {
+            return $this->response
+                ->setStatusCode(400)
+                ->setJSON(['success' => false, 'error' => 'Field "location_id" is required and must be numeric']);
+        }
+        $locationId = (int) $json['location_id'];
+
+        $stockLocationModel = model(Stock_location::class);
+        if (!$stockLocationModel->exists($locationId)) {
+            return $this->response
+                ->setStatusCode(400)
+                ->setJSON(['success' => false, 'error' => "Stock location_id {$locationId} does not exist"]);
+        }
+
+        $db = Database::connect();
+
+        // Check if stock location is deleted
+        $locRow = $db->table('stock_locations')
+            ->where('location_id', $locationId)
+            ->where('deleted', 0)
+            ->get()
+            ->getRow();
+
+        if (!$locRow) {
+            return $this->response
+                ->setStatusCode(400)
+                ->setJSON(['success' => false, 'error' => "Stock location_id {$locationId} is deleted or inactive"]);
+        }
+
+        // 3. Validate items
+        if (empty($json['items']) || !is_array($json['items']) || count($json['items']) === 0) {
+            return $this->response
+                ->setStatusCode(400)
+                ->setJSON(['success' => false, 'error' => 'Field "items" is required and must contain at least one item']);
+        }
+
+        $itemModel = model(Item::class);
+        $validatedItems = [];
+
+        foreach ($json['items'] as $index => $reqItem) {
+            if (!isset($reqItem['ospos_item_id']) || !is_numeric($reqItem['ospos_item_id'])) {
+                return $this->response
+                    ->setStatusCode(400)
+                    ->setJSON(['success' => false, 'error' => "Item at index {$index} must have a numeric 'ospos_item_id'"]);
+            }
+            $itemId = (int) $reqItem['ospos_item_id'];
+            if (!$itemModel->exists((string) $itemId)) {
+                return $this->response
+                    ->setStatusCode(400)
+                    ->setJSON(['success' => false, 'error' => "ospos_item_id {$itemId} at index {$index} does not exist or is deleted"]);
+            }
+            $itemInfo = $itemModel->get_info($itemId);
+
+            if (empty($itemInfo) || empty($itemInfo->item_id) || $itemInfo->item_id <= 0 || !empty($itemInfo->deleted)) {
+                return $this->response
+                    ->setStatusCode(400)
+                    ->setJSON(['success' => false, 'error' => "ospos_item_id {$itemId} at index {$index} does not exist or is deleted"]);
+            }
+
+
+            if (!isset($reqItem['quantity']) || !is_numeric($reqItem['quantity']) || (float)$reqItem['quantity'] <= 0) {
+                return $this->response
+                    ->setStatusCode(400)
+                    ->setJSON(['success' => false, 'error' => "Item at index {$index} must have a quantity > 0"]);
+            }
+            $quantity = (float) $reqItem['quantity'];
+
+            if (!isset($reqItem['unit_price']) || !is_numeric($reqItem['unit_price']) || (float)$reqItem['unit_price'] < 0) {
+                return $this->response
+                    ->setStatusCode(400)
+                    ->setJSON(['success' => false, 'error' => "Item at index {$index} must have a unit_price >= 0"]);
+            }
+            $unitPrice = (float) $reqItem['unit_price'];
+
+            $validatedItems[] = [
+                'item_info'  => $itemInfo,
+                'quantity'   => $quantity,
+                'unit_price' => $unitPrice,
+            ];
+        }
+
+        // 4. Validate expires_at
+        $expiresAtStr = null;
+        if (!empty($json['expires_at'])) {
+            $ts = strtotime($json['expires_at']);
+            if ($ts === false) {
+                return $this->response
+                    ->setStatusCode(400)
+                    ->setJSON(['success' => false, 'error' => 'Field "expires_at" must be a valid datetime string']);
+            }
+            $expiresAtStr = date('Y-m-d H:i:s', $ts);
+        } else {
+            $expiresAtStr = date('Y-m-d H:i:s', strtotime('+5 days'));
+        }
+
+        // 5. Idempotency Check in ospos_tilevista_quotes
+        $existingQuote = $db->table('tilevista_quotes')
+            ->where('order_reference', $reference)
+            ->get()
+            ->getRow();
+
+        if ($existingQuote) {
+            return $this->response
+                ->setStatusCode(200)
+                ->setJSON([
+                    'success'       => true,
+                    'message'       => 'TileVista quote already exists',
+                    'reference'     => $reference,
+                    'ospos_sale_id' => (int) $existingQuote->ospos_sale_id,
+                    'status'        => 'SUSPENDED',
+                ]);
+        }
+
+        // Also check if reference exists in ospos_sales.quote_number
+        $saleModel = model(Sale::class);
+        if ($saleModel->check_quote_number_exists($reference)) {
+            $existingSaleRow = $db->table('sales')
+                ->where('quote_number', $reference)
+                ->get()
+                ->getRow();
+
+            if ($existingSaleRow) {
+                return $this->response
+                    ->setStatusCode(200)
+                    ->setJSON([
+                        'success'       => true,
+                        'message'       => 'TileVista quote already exists in sales',
+                        'reference'     => $reference,
+                        'ospos_sale_id' => (int) $existingSaleRow->sale_id,
+                        'status'        => ($existingSaleRow->sale_status == SUSPENDED ? 'SUSPENDED' : 'COMPLETED'),
+                    ]);
+            }
+        }
+
+        // 6. Resolve Customer
+        $customerData = isset($json['customer']) && is_array($json['customer']) ? $json['customer'] : null;
+        $customerId = $this->resolveCustomer($customerData);
+
+        // 7. Prepare comment
+        $commentStr = !empty($json['comment']) && is_string($json['comment']) ? trim($json['comment']) : "TileVista Online Showroom Order {$reference}";
+        if ($expiresAtStr) {
+            $commentStr .= " [EXPIRES: {$expiresAtStr}]";
+        }
+
+        // 8. Prepare items array for save_value()
+        $itemsArray = [];
+        $line = 1;
+        foreach ($validatedItems as $vItem) {
+            $itemInfo = $vItem['item_info'];
+            $itemsArray[$line] = [
+                'item_id'       => (int) $itemInfo->item_id,
+                'line'          => $line,
+                'description'   => $itemInfo->name ?? '',
+                'serialnumber'  => '',
+                'quantity'      => $vItem['quantity'],
+                'discount'      => 0.00,
+                'discount_type' => 0, // PERCENT
+                'cost_price'    => (float) ($itemInfo->cost_price ?? 0),
+                'price'         => $vItem['unit_price'],
+                'item_location' => $locationId,
+                'print_option'  => 0,
+            ];
+            $line++;
+        }
+
+        // 9. Execute DB Transaction for quote creation + mapping
+        $db->transStart();
+
+        $saleStatus = (string) SUSPENDED; // '1'
+        $invoiceNumber = null;
+        $workOrderNumber = null;
+        $quoteNumber = $reference;
+        $saleType = SALE_TYPE_QUOTE; // 3
+        $payments = [];
+        $dinnerTableId = null;
+        $salesTaxes = [[], []];
+
+        $saleId = $saleModel->save_value(
+
+            NEW_ENTRY,
+            $saleStatus,
+            $itemsArray,
+            $customerId,
+            1, // Employee ID = 1 (Admin/API System user)
+            $commentStr,
+            $invoiceNumber,
+            $workOrderNumber,
+            $quoteNumber,
+            $saleType,
+            $payments,
+            $dinnerTableId,
+            $salesTaxes
+        );
+
+        if ($saleId <= 0 || $saleId === NEW_ENTRY) {
+            $db->transRollback();
+            return $this->response
+                ->setStatusCode(500)
+                ->setJSON(['success' => false, 'error' => 'Failed to save quote in OSPOS database']);
+        }
+
+        // Insert into ospos_tilevista_quotes mapping table
+        $db->table('tilevista_quotes')->insert([
+            'order_reference' => $reference,
+            'ospos_sale_id'   => $saleId,
+            'expires_at'      => $expiresAtStr,
+            'created_at'      => date('Y-m-d H:i:s'),
+        ]);
+
+        $db->transComplete();
+
+        if ($db->transStatus() === false) {
+            return $this->response
+                ->setStatusCode(500)
+                ->setJSON(['success' => false, 'error' => 'Database transaction failed during quote creation']);
+        }
+
+        return $this->response
+            ->setStatusCode(201)
+            ->setJSON([
+                'success'       => true,
+                'message'       => 'TileVista quote created successfully',
+                'reference'     => $reference,
+                'ospos_sale_id' => (int) $saleId,
+                'status'        => 'SUSPENDED',
+            ]);
+    }
+
+    /**
+     * Resolves or creates an OSPOS customer ID from incoming customer payload.
+     */
+    private function resolveCustomer(?array $customerData): int
+    {
+        if (empty($customerData) || !is_array($customerData)) {
+            return NEW_ENTRY; // -1
+        }
+
+        $db = Database::connect();
+
+        // 1. Try finding customer by email
+        if (!empty($customerData['email']) && is_string($customerData['email'])) {
+            $email = trim($customerData['email']);
+            $builder = $db->table('customers');
+            $builder->join('people', 'people.person_id = customers.person_id');
+            $builder->where('people.email', $email);
+            $builder->where('customers.deleted', 0);
+            $row = $builder->get()->getRow();
+            if ($row) {
+                return (int) $row->person_id;
+            }
+        }
+
+        // 2. Try finding customer by phone
+        if (!empty($customerData['phone']) && is_string($customerData['phone'])) {
+            $phone = trim($customerData['phone']);
+            $builder = $db->table('customers');
+            $builder->join('people', 'people.person_id = customers.person_id');
+            $builder->where('people.phone_number', $phone);
+            $builder->where('customers.deleted', 0);
+            $row = $builder->get()->getRow();
+            if ($row) {
+                return (int) $row->person_id;
+            }
+        }
+
+        // 3. If customer first_name or last_name is provided, create customer
+        $firstName = !empty($customerData['first_name']) ? trim($customerData['first_name']) : '';
+        $lastName = !empty($customerData['last_name']) ? trim($customerData['last_name']) : '';
+        $email = !empty($customerData['email']) ? trim($customerData['email']) : '';
+        $phone = !empty($customerData['phone']) ? trim($customerData['phone']) : '';
+
+        if (!empty($firstName) || !empty($lastName) || !empty($email) || !empty($phone)) {
+            $personData = [
+                'first_name'   => !empty($firstName) ? $firstName : 'TileVista',
+                'last_name'    => !empty($lastName) ? $lastName : 'Customer',
+                'email'        => $email,
+                'phone_number' => $phone,
+                'address_1'    => '',
+                'address_2'    => '',
+                'city'         => '',
+                'state'        => '',
+                'zip'          => '',
+                'country'      => '',
+                'comments'     => 'Created automatically via TileVista Integration API'
+            ];
+            $custData = [
+                'account_number' => null,
+                'taxable'        => 1,
+                'deleted'        => 0
+            ];
+
+            $customerModel = model(Customer::class);
+            if ($customerModel->save_customer($personData, $custData, NEW_ENTRY)) {
+                return (int) $personData['person_id'];
+            }
+        }
+
+        return NEW_ENTRY; // -1
+    }
+
+    /**
+     * POST /api/tilevista/quote/cancel
+     * Cancels a suspended TileVista quote in OSPOS safely.
+     * Prevents cancellation of already-completed sales (HTTP 409) and is idempotent (HTTP 200).
+     */
+    public function cancelQuote()
+    {
+        if ($authError = $this->checkAuth()) {
+            return $authError;
+        }
+
+        $json = $this->request->getJSON(true);
+        if (empty($json) || !is_array($json)) {
+            return $this->response
+                ->setStatusCode(400)
+                ->setJSON(['success' => false, 'error' => 'Invalid or missing JSON payload']);
+        }
+
+        if (empty($json['reference']) || !is_string($json['reference'])) {
+            return $this->response
+                ->setStatusCode(400)
+                ->setJSON(['success' => false, 'error' => 'Field "reference" is required and must be a string']);
+        }
+        $reference = trim($json['reference']);
+
+        $db = Database::connect();
+
+        // 1. Find mapping record
+        $tvQuote = $db->table('tilevista_quotes')
+            ->where('order_reference', $reference)
+            ->get()
+            ->getRow();
+
+        if (!$tvQuote) {
+            return $this->response
+                ->setStatusCode(404)
+                ->setJSON(['success' => false, 'error' => "TileVista quote with reference '{$reference}' not found"]);
+        }
+
+        $saleId = (int) $tvQuote->ospos_sale_id;
+
+        // 2. Fetch current sale row
+        $saleRow = $db->table('sales')
+            ->where('sale_id', $saleId)
+            ->get()
+            ->getRow();
+
+        if (!$saleRow) {
+            return $this->response
+                ->setStatusCode(404)
+                ->setJSON(['success' => false, 'error' => "OSPOS sale ID {$saleId} not found in sales table"]);
+        }
+
+        $currentStatus = (int) $saleRow->sale_status;
+
+        // 3. Handle COMPLETED sales (HTTP 409 Conflict)
+        if ($currentStatus === COMPLETED) {
+            return $this->response
+                ->setStatusCode(409)
+                ->setJSON([
+                    'success'       => false,
+                    'error'         => 'Sale already completed',
+                    'reference'     => $reference,
+                    'ospos_sale_id' => $saleId,
+                    'status'        => 'COMPLETED',
+                ]);
+        }
+
+        // 4. Handle CANCELED sales (Idempotent HTTP 200 OK)
+        if ($currentStatus === CANCELED) {
+            return $this->response
+                ->setStatusCode(200)
+                ->setJSON([
+                    'success'       => true,
+                    'message'       => 'TileVista quote is already cancelled',
+                    'reference'     => $reference,
+                    'ospos_sale_id' => $saleId,
+                    'status'        => 'CANCELED',
+                ]);
+        }
+
+        // 5. Perform atomic update from SUSPENDED (1) -> CANCELED (2)
+        $db->transStart();
+
+        $builder = $db->table('sales');
+        $builder->where('sale_id', $saleId);
+        $builder->where('sale_status', SUSPENDED); // 1
+        $builder->update(['sale_status' => CANCELED]); // 2
+
+        if ($db->affectedRows() === 0) {
+            $db->transRollback();
+            return $this->response
+                ->setStatusCode(409)
+                ->setJSON([
+                    'success'       => false,
+                    'error'         => 'Sale already completed',
+                    'reference'     => $reference,
+                    'ospos_sale_id' => $saleId,
+                    'status'        => 'COMPLETED',
+                ]);
+        }
+
+        $db->transComplete();
+
+        if ($db->transStatus() === false) {
+            return $this->response
+                ->setStatusCode(500)
+                ->setJSON(['success' => false, 'error' => 'Database transaction failed during cancellation']);
+        }
+
+        return $this->response
+            ->setStatusCode(200)
+            ->setJSON([
+                'success'       => true,
+                'message'       => 'TileVista quote cancelled successfully',
+                'reference'     => $reference,
+                'ospos_sale_id' => $saleId,
+                'status'        => 'CANCELED',
+            ]);
+    }
 }
+
+
