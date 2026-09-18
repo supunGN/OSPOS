@@ -6,7 +6,7 @@ use App\Models\Tax_jurisdiction;
 use Config\Services;
 
 /**
- * @property tax_jurisdiction tax_jurisdiction
+ * @property Tax_jurisdiction $tax_jurisdiction
  */
 class Tax_jurisdictions extends Secure_Controller
 {
