@@ -1,0 +1,21 @@
+# CodeIgniter 4 writable directory (runtime cache, debugbar, logs, sessions)
+writable/cache/*
+!writable/cache/index.html
+!writable/cache/.htaccess
+writable/debugbar/*
+!writable/debugbar/index.html
+writable/logs/*
+!writable/logs/index.html
+writable/session/*
+!writable/session/index.html
+writable/backup/*
+!writable/backup/index.html
+writable/uploads/*
+!writable/uploads/index.html
+!writable/uploads/importCustomers.csv
+
+# Temporary and local files
+/Temporary/
+*.sql
+.DS_Store
+Thumbs.db
